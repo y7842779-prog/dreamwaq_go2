@@ -19,10 +19,14 @@ class DreamWaQObservationsCfg:
 
     @configclass
     class PolicyCfg(ObsGroup):
-        """Actor-facing proprioceptive observations.
+        """Actor-facing partial observations with explicit history packing.
 
-        This group intentionally excludes terrain height scans and simulator
-        ground-truth linear velocity so the actor stays proprioception-only.
+        The term order is important here:
+        1. Current proprioceptive observation ``o_t`` (45 dims).
+        2. History observation ``o_t^H`` flattened afterwards (5 x 45 dims).
+
+        This keeps the actor proprioception-only while making the CENet input
+        available inside the same ``policy`` tensor consumed by RSL-RL.
         """
 
         base_ang_vel = ObsTerm(func=mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2))
@@ -34,6 +38,41 @@ class DreamWaQObservationsCfg:
         joint_pos = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
         joint_vel = ObsTerm(func=mdp.joint_vel_rel, noise=Unoise(n_min=-1.5, n_max=1.5))
         actions = ObsTerm(func=mdp.last_action)
+        history_base_ang_vel = ObsTerm(
+            func=mdp.base_ang_vel,
+            noise=Unoise(n_min=-0.2, n_max=0.2),
+            history_length=5,
+            flatten_history_dim=True,
+        )
+        history_projected_gravity = ObsTerm(
+            func=mdp.projected_gravity,
+            noise=Unoise(n_min=-0.05, n_max=0.05),
+            history_length=5,
+            flatten_history_dim=True,
+        )
+        history_velocity_commands = ObsTerm(
+            func=mdp.generated_commands,
+            params={"command_name": "base_velocity"},
+            history_length=5,
+            flatten_history_dim=True,
+        )
+        history_joint_pos = ObsTerm(
+            func=mdp.joint_pos_rel,
+            noise=Unoise(n_min=-0.01, n_max=0.01),
+            history_length=5,
+            flatten_history_dim=True,
+        )
+        history_joint_vel = ObsTerm(
+            func=mdp.joint_vel_rel,
+            noise=Unoise(n_min=-1.5, n_max=1.5),
+            history_length=5,
+            flatten_history_dim=True,
+        )
+        history_actions = ObsTerm(
+            func=mdp.last_action,
+            history_length=5,
+            flatten_history_dim=True,
+        )
 
         def __post_init__(self):
             self.enable_corruption = True
@@ -93,9 +132,12 @@ class DreamWaQObservationsCfg:
 class UnitreeGo2DreamWaQEnvCfg(UnitreeGo2RoughEnvCfg):
     """DreamWaQ-style Go2 rough-terrain environment.
 
-    This file only prepares the environment-side observation split.
-    The paper's CENet loss and adaptive bootstrapping still need a custom
-    runner/model implementation.
+    The actor now receives a single ``policy`` tensor packed as
+    ``[o_t, o_t^H]`` so a custom DreamWaQ policy can recover the current
+    proprioceptive observation and the temporal history from one input.
+
+    The paper's CENet auxiliary loss and adaptive bootstrapping still need
+    custom PPO/runner changes.
     """
 
     observations: DreamWaQObservationsCfg = DreamWaQObservationsCfg()

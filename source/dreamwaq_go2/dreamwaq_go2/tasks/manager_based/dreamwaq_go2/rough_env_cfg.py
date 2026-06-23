@@ -3,6 +3,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+import isaaclab.sim as sim_utils
 from isaaclab.utils import configclass
 
 from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import LocomotionVelocityRoughEnvCfg
@@ -13,14 +14,28 @@ from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import Lo
 from isaaclab_assets.robots.unitree import UNITREE_GO2_CFG  # isort: skip
 
 
+LOCAL_GO2_USD_PATH = "/home/hyc/my_assets/go2.usd"
+
+
 @configclass
 class UnitreeGo2RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
     def __post_init__(self):
         # post init of parent
         super().__post_init__()
 
+        # Keep the task self-contained with a local robot asset and local-only scene visuals.
         self.scene.robot = UNITREE_GO2_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+        self.scene.robot.spawn.usd_path = LOCAL_GO2_USD_PATH
         self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/Robot/base"
+        self.scene.terrain.visual_material = sim_utils.PreviewSurfaceCfg(
+            diffuse_color=(0.20, 0.18, 0.16),
+            roughness=0.95,
+            metallic=0.0,
+        )
+        self.scene.sky_light.spawn = sim_utils.DomeLightCfg(
+            intensity=750.0,
+            color=(0.78, 0.80, 0.84),
+        )
         # scale down the terrains because the robot is small
         self.scene.terrain.terrain_generator.sub_terrains["boxes"].grid_height_range = (0.025, 0.1)
         self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_range = (0.01, 0.06)

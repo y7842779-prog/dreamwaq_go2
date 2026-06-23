@@ -75,6 +75,7 @@ import torch
 from datetime import datetime
 
 from rsl_rl.runners import OnPolicyRunner
+import rsl_rl.runners.on_policy_runner as rsl_rl_on_policy_runner
 
 from isaaclab.envs import (
     DirectMARLEnv,
@@ -92,7 +93,10 @@ import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils import get_checkpoint_path
 from isaaclab_tasks.utils.hydra import hydra_task_config
 
+from dreamwaq_go2.tasks.manager_based.dreamwaq_go2.agents.dreamwaq_actor_critic import DreamWaQActorCritic
 import dreamwaq_go2.tasks  # noqa: F401
+
+rsl_rl_on_policy_runner.DreamWaQActorCritic = DreamWaQActorCritic
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True

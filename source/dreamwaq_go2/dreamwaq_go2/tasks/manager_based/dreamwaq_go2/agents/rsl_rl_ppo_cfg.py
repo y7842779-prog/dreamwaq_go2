@@ -11,8 +11,8 @@ from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, R
 @configclass
 class UnitreeGo2RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24
-    max_iterations = 1500
-    save_interval = 50
+    max_iterations = 10000
+    save_interval = 100
     experiment_name = "unitree_go2_rough"
     empirical_normalization = False
     policy = RslRlPpoActorCriticCfg(
@@ -46,7 +46,14 @@ class UnitreeGo2DreamWaQPPORunnerCfg(UnitreeGo2RoughPPORunnerCfg):
     critic observations to the env's ``critic`` group directly.
     """
 
-    experiment_name = "unitree_go2_dreamwaq"
+    experiment_name = "unitree_go2_dreamwaq_cenet"
+    policy = RslRlPpoActorCriticCfg(
+        class_name="DreamWaQActorCritic",
+        init_noise_std=1.0,
+        actor_hidden_dims=[512, 256, 128],
+        critic_hidden_dims=[512, 256, 128],
+        activation="elu",
+    )
 
 
 @configclass
