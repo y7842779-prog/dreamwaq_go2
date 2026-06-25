@@ -76,9 +76,12 @@ from isaaclab_tasks.utils import get_checkpoint_path
 from isaaclab_tasks.utils.hydra import hydra_task_config
 
 from dreamwaq_go2.tasks.manager_based.dreamwaq_go2.agents.dreamwaq_actor_critic import DreamWaQActorCritic
+from dreamwaq_go2.tasks.manager_based.dreamwaq_go2.agents.dreamwaq_ppo import DreamWaQPPO
 import dreamwaq_go2.tasks  # noqa: F401
 
 rsl_rl_on_policy_runner.DreamWaQActorCritic = DreamWaQActorCritic
+rsl_rl_on_policy_runner.DreamWaQPPO = DreamWaQPPO
+rsl_rl_on_policy_runner.PPO = DreamWaQPPO
 
 
 @hydra_task_config(args_cli.task, "rsl_rl_cfg_entry_point")

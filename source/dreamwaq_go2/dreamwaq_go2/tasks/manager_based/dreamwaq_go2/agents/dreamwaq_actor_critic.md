@@ -105,7 +105,8 @@
    - `encoder feature -> velocity_head -> velocity_estimate`
    - `encoder feature -> latent_mu_head -> latent_mu`
    - `encoder feature -> latent_logvar_head -> latent_logvar`
-   - `latent_mu -> decoder -> reconstructed_next_obs`
+   - `latent_mu + latent_logvar -> reparameterization sampling -> z`
+   - `z -> decoder -> reconstructed_next_obs`
 3. 拼接 actor 输入：
    - `actor_input = [current_obs, velocity_estimate, latent_mu]`
 4. 送入 `policy_head`
@@ -209,8 +210,8 @@ critic 仍是标准 MLP：
 
 - 生成 actor 动作均值
 
-它当前使用 `latent_mu` 直接作为潜变量，而没有使用 reparameterization sampling。  
-这样做的目的是先把推理链跑通，减少训练改动面。
+它当前仍然使用 `latent_mu` 直接作为 actor 的潜变量输入。  
+也就是说，控制分支保持确定性；reparameterization sampling 只用于 decoder 的重构分支。
 
 ### 5.4 `predict_estimator(observations)`
 
@@ -287,7 +288,7 @@ IsaacLab 默认导出策略时，会拷贝 `policy.actor`。
 
 当前实现仍然有几个重要限制：
 
-### 9.1 还没有真正训练 estimator
+### 9.1 estimator 已开始训练，但还不是论文完整版
 
 虽然网络里已经有：
 
@@ -296,21 +297,25 @@ IsaacLab 默认导出策略时，会拷贝 `policy.actor`。
 - `latent_logvar_head`
 - `decoder`
 
-但训练时还没有使用这些头的监督损失。  
-也就是说，当前它们只是“结构上存在”，但还没有被论文式目标显式优化。
+这些分支现在已经开始参与训练：
 
-### 9.2 还没有接 VAE 采样过程
+- `velocity_head` 受 `Lest` 监督
+- `decoder` 受简化版 `Lrecon` 监督
+- `latent_mu / latent_logvar` 受简化版 `KL loss` 约束
 
-当前 actor 前向直接使用 `latent_mu`，没有进行：
+但它们还没有完全达到论文中的严格训练形式。
 
-- reparameterization
-- KL loss 约束
+### 9.2 只在 decoder 分支接入了 VAE 采样
 
-因此它目前还不是严格意义上的 VAE。
+当前实现已经在 decoder 分支接入了 reparameterization sampling，  
+但 actor 前向仍然直接使用 `latent_mu`，没有把采样后的 `z` 送进策略头。
 
-### 9.3 decoder 还没有参与 PPO 损失
+因此它现在更接近一个“半接入版 VAE”。
 
-当前 `reconstructed_next_obs` 已经可以输出，但还没有拿它和 `o_{t+1}` 做重建误差。
+### 9.3 decoder 还没有接入论文严格版重构目标
+
+当前 `reconstructed_next_obs` 已经参与了简化版 `Lrecon`，  
+但 target 还是 `current_obs`，还没有拿它和论文更严格的 `o_{t+1}` 做重建误差。
 
 ### 9.4 还没有 AdaBoot
 

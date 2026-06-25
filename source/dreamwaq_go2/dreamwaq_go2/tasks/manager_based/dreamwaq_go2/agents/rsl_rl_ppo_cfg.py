@@ -9,6 +9,18 @@ from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, R
 
 
 @configclass
+class DreamWaQPPOAlgorithmCfg(RslRlPpoAlgorithmCfg):
+    """Configuration for PPO with an auxiliary DreamWaQ velocity loss."""
+
+    class_name: str = "PPO"
+    est_loss_coef: float = 0.1
+    recon_loss_coef: float = 0.1
+    kl_loss_coef: float = 1.0e-4
+    est_target_start_idx: int = 0
+    est_target_dim: int = 3
+
+
+@configclass
 class UnitreeGo2RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     num_steps_per_env = 24
     max_iterations = 10000
@@ -53,6 +65,25 @@ class UnitreeGo2DreamWaQPPORunnerCfg(UnitreeGo2RoughPPORunnerCfg):
         actor_hidden_dims=[512, 256, 128],
         critic_hidden_dims=[512, 256, 128],
         activation="elu",
+    )
+    algorithm = DreamWaQPPOAlgorithmCfg(
+        value_loss_coef=1.0,
+        use_clipped_value_loss=True,
+        clip_param=0.2,
+        entropy_coef=0.01,
+        num_learning_epochs=5,
+        num_mini_batches=4,
+        learning_rate=1.0e-3,
+        schedule="adaptive",
+        gamma=0.99,
+        lam=0.95,
+        desired_kl=0.01,
+        max_grad_norm=1.0,
+        est_loss_coef=0.1,
+        recon_loss_coef=0.1,
+        kl_loss_coef=1.0e-4,
+        est_target_start_idx=0,
+        est_target_dim=3,
     )
 
 

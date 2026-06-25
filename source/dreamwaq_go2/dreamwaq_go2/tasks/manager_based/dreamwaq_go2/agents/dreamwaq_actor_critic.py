@@ -1,6 +1,8 @@
 # Copyright (c) 2022-2025, The Isaac Lab Project Developers
 # All rights reserved.
-#
+# 模型长什么样？
+# 输入怎么流？
+# 输出 action 怎么算？
 # SPDX-License-Identifier: BSD-3-Clause
 
 from __future__ import annotations
@@ -117,19 +119,34 @@ class DreamWaQActor(nn.Module):
         history_obs = observations[:, self.current_obs_dim :]
         return current_obs, history_obs
 
+    def encode_history(self, observations: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        current_obs, history_obs = self.split_observations(observations)
+        encoded_history = self.encoder(history_obs)
+        return current_obs, encoded_history
+
+    @staticmethod
+    def sample_latent(latent_mu: torch.Tensor, latent_logvar: torch.Tensor) -> torch.Tensor:
+        # Clamp log-variance before exp() to keep the decoder-side sampling numerically stable.
+        latent_logvar = torch.clamp(latent_logvar, min=-10.0, max=10.0)
+        latent_std = torch.exp(0.5 * latent_logvar)
+        latent_eps = torch.randn_like(latent_std)
+        return latent_mu + latent_eps * latent_std
+
     def estimate_context(
         self, observations: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        current_obs, history_obs = self.split_observations(observations)
-        encoded_history = self.encoder(history_obs)
+        current_obs, encoded_history = self.encode_history(observations)
         velocity_estimate = self.velocity_head(encoded_history)
         latent_mu = self.latent_mu_head(encoded_history)
         latent_logvar = self.latent_logvar_head(encoded_history)
-        reconstructed_next_obs = self.decoder(latent_mu)
+        latent_sample = self.sample_latent(latent_mu, latent_logvar)
+        reconstructed_next_obs = self.decoder(latent_sample)
         return current_obs, velocity_estimate, latent_mu, latent_logvar, reconstructed_next_obs
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:
-        current_obs, velocity_estimate, latent_mu, _, _ = self.estimate_context(observations)
+        current_obs, encoded_history = self.encode_history(observations)
+        velocity_estimate = self.velocity_head(encoded_history)
+        latent_mu = self.latent_mu_head(encoded_history)
         actor_input = torch.cat((current_obs, velocity_estimate, latent_mu), dim=-1)
         return self.policy_head(actor_input)
 
