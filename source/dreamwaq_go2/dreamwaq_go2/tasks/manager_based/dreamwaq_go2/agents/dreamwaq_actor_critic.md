@@ -300,7 +300,7 @@ IsaacLab 默认导出策略时，会拷贝 `policy.actor`。
 这些分支现在已经开始参与训练：
 
 - `velocity_head` 受 `Lest` 监督
-- `decoder` 受简化版 `Lrecon` 监督
+- `decoder` 受严格版 `Lrecon(next_obs)` 监督
 - `latent_mu / latent_logvar` 受简化版 `KL loss` 约束
 
 但它们还没有完全达到论文中的严格训练形式。
@@ -312,10 +312,10 @@ IsaacLab 默认导出策略时，会拷贝 `policy.actor`。
 
 因此它现在更接近一个“半接入版 VAE”。
 
-### 9.3 decoder 还没有接入论文严格版重构目标
+### 9.3 decoder 已接入严格版 next-step 重构目标
 
-当前 `reconstructed_next_obs` 已经参与了简化版 `Lrecon`，  
-但 target 还是 `current_obs`，还没有拿它和论文更严格的 `o_{t+1}` 做重建误差。
+当前 `reconstructed_next_obs` 已经使用严格版 `Lrecon(next_obs)` 训练，  
+target 来自 rollout 中存下来的下一时刻 actor 观测，并对 `done` 样本做了 mask。
 
 ### 9.4 还没有 AdaBoot
 

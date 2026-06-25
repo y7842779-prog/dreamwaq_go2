@@ -274,6 +274,9 @@ class DreamWaQActorCritic(nn.Module):
     def evaluate(self, critic_observations: torch.Tensor, **kwargs):
         return self.critic(critic_observations)
 
+    def split_actor_observations(self, observations: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        return self.actor.split_observations(observations)
+
     def predict_estimator(self, observations: torch.Tensor) -> dict[str, torch.Tensor]:
         current_obs, velocity_estimate, latent_mu, latent_logvar, reconstructed_next_obs = self.actor.estimate_context(
             observations
