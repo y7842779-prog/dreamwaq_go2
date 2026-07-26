@@ -55,6 +55,7 @@ import os
 import time
 import torch
 
+from rsl_rl.algorithms import PPO as RslRlPPO
 from rsl_rl.runners import OnPolicyRunner
 import rsl_rl.runners.on_policy_runner as rsl_rl_on_policy_runner
 
@@ -81,7 +82,20 @@ import dreamwaq_go2.tasks  # noqa: F401
 
 rsl_rl_on_policy_runner.DreamWaQActorCritic = DreamWaQActorCritic
 rsl_rl_on_policy_runner.DreamWaQPPO = DreamWaQPPO
-rsl_rl_on_policy_runner.PPO = DreamWaQPPO
+
+
+def _get_runner_cfg(agent_cfg: RslRlOnPolicyRunnerCfg) -> dict:
+    """Adapt custom DreamWaQ config names to the stock RSL-RL runner."""
+
+    runner_cfg = agent_cfg.to_dict()
+    alg_class_name = runner_cfg["algorithm"]["class_name"]
+    policy_class_name = runner_cfg.get("policy", {}).get("class_name")
+    if alg_class_name == "DreamWaQPPO" or policy_class_name == "DreamWaQActorCritic":
+        rsl_rl_on_policy_runner.PPO = DreamWaQPPO
+        runner_cfg["algorithm"]["class_name"] = "PPO"
+    else:
+        rsl_rl_on_policy_runner.PPO = RslRlPPO
+    return runner_cfg
 
 
 @hydra_task_config(args_cli.task, "rsl_rl_cfg_entry_point")
@@ -140,7 +154,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     print(f"[INFO]: Loading model checkpoint from: {resume_path}")
     # load previously trained model
-    ppo_runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=None, device=agent_cfg.device)
+    ppo_runner = OnPolicyRunner(env, _get_runner_cfg(agent_cfg), log_dir=None, device=agent_cfg.device)
     ppo_runner.load(resume_path)
 
     # obtain the trained policy for inference
@@ -167,6 +181,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     # reset environment
     obs, _ = env.get_observations()
     timestep = 0
+
     # simulate environment
     while simulation_app.is_running():
         start_time = time.time()

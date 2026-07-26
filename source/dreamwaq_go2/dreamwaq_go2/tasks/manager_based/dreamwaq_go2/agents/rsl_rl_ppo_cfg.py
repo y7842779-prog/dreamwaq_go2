@@ -88,6 +88,13 @@ class UnitreeGo2DreamWaQPPORunnerCfg(UnitreeGo2RoughPPORunnerCfg):
 
 
 @configclass
+class UnitreeGo2RoughAsymPPORunnerCfg(UnitreeGo2RoughPPORunnerCfg):
+    """Runner config for the privileged-critic rough Go2 baseline."""
+
+    experiment_name = "unitree_go2_rough_asym"
+
+
+@configclass
 class UnitreeGo2FlatPPORunnerCfg(UnitreeGo2RoughPPORunnerCfg):
     def __post_init__(self):
         super().__post_init__()

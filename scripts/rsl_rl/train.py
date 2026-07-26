@@ -74,6 +74,7 @@ import os
 import torch
 from datetime import datetime
 
+from rsl_rl.algorithms import PPO as RslRlPPO
 from rsl_rl.runners import OnPolicyRunner
 import rsl_rl.runners.on_policy_runner as rsl_rl_on_policy_runner
 
@@ -99,12 +100,27 @@ import dreamwaq_go2.tasks  # noqa: F401
 
 rsl_rl_on_policy_runner.DreamWaQActorCritic = DreamWaQActorCritic
 rsl_rl_on_policy_runner.DreamWaQPPO = DreamWaQPPO
-rsl_rl_on_policy_runner.PPO = DreamWaQPPO
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 torch.backends.cudnn.deterministic = False
 torch.backends.cudnn.benchmark = False
+
+
+def _get_runner_cfg(agent_cfg: RslRlOnPolicyRunnerCfg) -> dict:
+    """Adapt custom DreamWaQ config names to the stock RSL-RL runner."""
+
+    runner_cfg = agent_cfg.to_dict()
+    alg_class_name = runner_cfg["algorithm"]["class_name"]
+    policy_class_name = runner_cfg.get("policy", {}).get("class_name")
+    # Isaac Lab's bundled OnPolicyRunner only recognizes "PPO" and "Distillation"
+    # as RL training types, so remap the DreamWaQ PPO variant right before runner creation.
+    if alg_class_name == "DreamWaQPPO" or policy_class_name == "DreamWaQActorCritic":
+        rsl_rl_on_policy_runner.PPO = DreamWaQPPO
+        runner_cfg["algorithm"]["class_name"] = "PPO"
+    else:
+        rsl_rl_on_policy_runner.PPO = RslRlPPO
+    return runner_cfg
 
 
 @hydra_task_config(args_cli.task, "rsl_rl_cfg_entry_point")
@@ -171,7 +187,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
 
     # create runner from rsl-rl
-    runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
+    runner = OnPolicyRunner(env, _get_runner_cfg(agent_cfg), log_dir=log_dir, device=agent_cfg.device)
     # write git state to logs
     runner.add_git_repo_to_log(__file__)
     # load the checkpoint

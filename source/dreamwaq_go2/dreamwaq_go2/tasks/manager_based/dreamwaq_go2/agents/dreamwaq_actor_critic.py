@@ -251,14 +251,22 @@ class DreamWaQActorCritic(nn.Module):
     def entropy(self):
         return self.distribution.entropy().sum(dim=-1)
 
-    def update_distribution(self, observations: torch.Tensor):
-        mean = self.actor(observations)
+    def _compute_action_std(self, mean: torch.Tensor) -> torch.Tensor:
+        """Return a numerically safe positive standard deviation tensor."""
+
         if self.noise_std_type == "scalar":
-            std = self.std.expand_as(mean)
+            raw_std = torch.nan_to_num(self.std, nan=1.0, posinf=1.0e3, neginf=-1.0e3)
+            std = raw_std.abs().clamp_min(1.0e-6)
         elif self.noise_std_type == "log":
-            std = torch.exp(self.log_std).expand_as(mean)
+            raw_log_std = torch.nan_to_num(self.log_std, nan=0.0, posinf=5.0, neginf=-20.0)
+            std = torch.exp(torch.clamp(raw_log_std, min=-20.0, max=5.0)).clamp_min(1.0e-6)
         else:
             raise ValueError(f"Unknown standard deviation type: {self.noise_std_type}. Should be 'scalar' or 'log'")
+        return std.expand_as(mean)
+
+    def update_distribution(self, observations: torch.Tensor):
+        mean = self.actor(observations)
+        std = self._compute_action_std(mean)
         self.distribution = Normal(mean, std)
 
     def act(self, observations: torch.Tensor, **kwargs):
@@ -290,5 +298,14 @@ class DreamWaQActorCritic(nn.Module):
         }
 
     def load_state_dict(self, state_dict, strict=True):
-        super().load_state_dict(state_dict, strict=strict)
+        remapped_state_dict = dict(state_dict)
+        if self.noise_std_type == "log":
+            legacy_std = remapped_state_dict.pop("std", None)
+            if "log_std" not in remapped_state_dict and legacy_std is not None:
+                remapped_state_dict["log_std"] = torch.log(legacy_std.abs().clamp_min(1.0e-6))
+        elif self.noise_std_type == "scalar":
+            legacy_log_std = remapped_state_dict.pop("log_std", None)
+            if "std" not in remapped_state_dict and legacy_log_std is not None:
+                remapped_state_dict["std"] = torch.exp(legacy_log_std)
+        super().load_state_dict(remapped_state_dict, strict=strict)
         return True

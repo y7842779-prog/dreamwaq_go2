@@ -5,6 +5,7 @@
 
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
+from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
@@ -145,9 +146,19 @@ class UnitreeGo2DreamWaQEnvCfg(UnitreeGo2RoughEnvCfg):
     def __post_init__(self):
         super().__post_init__()
 
+        self.rewards.joint_pos = RewTerm(
+            func=mdp.joint_position_penalty,
+            weight=-0.7,
+            params={
+                "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
+                "stand_still_scale": 5.0,
+                "velocity_threshold": 0.3,
+            },
+        )
+
         # Keep a per-episode disturbance force on the base as privileged critic input.
         self.events.base_external_force_torque.params["asset_cfg"].body_names = "base"
-        self.events.base_external_force_torque.params["force_range"] = (-15.0, 15.0)
+        self.events.base_external_force_torque.params["force_range"] = (-5.0, 5.0)
         self.events.base_external_force_torque.params["torque_range"] = (0.0, 0.0)
 
         self.observations.policy.enable_corruption = True
