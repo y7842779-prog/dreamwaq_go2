@@ -3,6 +3,8 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+import copy
+
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg as RewTerm
@@ -146,6 +148,47 @@ class UnitreeGo2DreamWaQEnvCfg(UnitreeGo2RoughEnvCfg):
     def __post_init__(self):
         super().__post_init__()
 
+        terrain_gen = self.scene.terrain.terrain_generator
+        if terrain_gen is not None:
+            terrain_gen.curriculum = True
+            terrain_gen.num_rows = 10
+            terrain_gen.num_cols = 20
+            self.scene.terrain.max_init_terrain_level = 2
+
+            stairs = terrain_gen.sub_terrains["pyramid_stairs"]
+            stairs_inv = terrain_gen.sub_terrains["pyramid_stairs_inv"]
+            stairs.step_height_range = (0.04, 0.12)
+            stairs.step_width = 0.30
+            stairs.proportion = 0.18
+            stairs_inv.step_height_range = (0.04, 0.12)
+            stairs_inv.step_width = 0.30
+            stairs_inv.proportion = 0.10
+
+            stairs_short = copy.deepcopy(stairs)
+            stairs_short.step_width = 0.24
+            stairs_short.proportion = 0.14
+            terrain_gen.sub_terrains["pyramid_stairs_short_tread"] = stairs_short
+
+            stairs_long = copy.deepcopy(stairs)
+            stairs_long.step_width = 0.36
+            stairs_long.proportion = 0.08
+            terrain_gen.sub_terrains["pyramid_stairs_long_tread"] = stairs_long
+
+            stairs_inv_short = copy.deepcopy(stairs_inv)
+            stairs_inv_short.step_width = 0.24
+            stairs_inv_short.proportion = 0.07
+            terrain_gen.sub_terrains["pyramid_stairs_inv_short_tread"] = stairs_inv_short
+
+            stairs_inv_long = copy.deepcopy(stairs_inv)
+            stairs_inv_long.step_width = 0.36
+            stairs_inv_long.proportion = 0.03
+            terrain_gen.sub_terrains["pyramid_stairs_inv_long_tread"] = stairs_inv_long
+
+            terrain_gen.sub_terrains["boxes"].proportion = 0.14
+            terrain_gen.sub_terrains["random_rough"].proportion = 0.16
+            terrain_gen.sub_terrains["hf_pyramid_slope"].proportion = 0.05
+            terrain_gen.sub_terrains["hf_pyramid_slope_inv"].proportion = 0.05
+
         self.rewards.joint_pos = RewTerm(
             func=mdp.joint_position_penalty,
             weight=-0.7,
@@ -153,6 +196,14 @@ class UnitreeGo2DreamWaQEnvCfg(UnitreeGo2RoughEnvCfg):
                 "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
                 "stand_still_scale": 5.0,
                 "velocity_threshold": 0.3,
+            },
+        )
+        self.rewards.foot_clearance = RewTerm(
+            func=mdp.foot_clearance_penalty,
+            weight=-0.03,
+            params={
+                "asset_cfg": SceneEntityCfg("robot", body_names=".*_foot"),
+                "target_height": 0.12,
             },
         )
 
