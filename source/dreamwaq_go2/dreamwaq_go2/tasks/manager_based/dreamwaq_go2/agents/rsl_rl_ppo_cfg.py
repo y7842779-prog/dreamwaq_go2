@@ -91,7 +91,8 @@ class UnitreeGo2DreamWaQPPORunnerCfg(UnitreeGo2RoughPPORunnerCfg):
 class UnitreeGo2RoughAsymPPORunnerCfg(UnitreeGo2RoughPPORunnerCfg):
     """Runner config for the privileged-critic rough Go2 baseline."""
 
-    experiment_name = "unitree_go2_rough_asym"
+    max_iterations = 5000
+    experiment_name = "unitree_go2_rough_asym_payload_curriculum"
 
 
 @configclass

@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import isaaclab.sim as sim_utils
+from isaaclab.managers import CurriculumTermCfg as CurrTerm
+from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import SceneEntityCfg
@@ -12,6 +14,7 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 from isaaclab_tasks.manager_based.locomotion.velocity.velocity_env_cfg import (
+    CurriculumCfg as BaseCurriculumCfg,
     LocomotionVelocityRoughEnvCfg,
     ObservationsCfg as BaseObservationsCfg,
 )
@@ -89,6 +92,25 @@ class UnitreeGo2RoughAsymObservationsCfg(BaseObservationsCfg):
 
 
 @configclass
+class AsymPayloadDRCurriculumCfg(BaseCurriculumCfg):
+    """Three-stage payload and CoM curriculum for the asymmetric PPO task."""
+
+    payload_dr_levels = CurrTerm(
+        func=mdp.payload_dr_levels,
+        params={
+            "steps_per_iteration": 24,
+            "stage_iterations": (1500, 3500),
+            "mass_ranges": ((0.0, 3.0), (0.0, 5.0), (0.0, 8.0)),
+            "com_ranges": (
+                {"x": (-0.02, 0.02), "y": (-0.015, 0.015), "z": (-0.005, 0.005)},
+                {"x": (-0.04, 0.04), "y": (-0.025, 0.025), "z": (-0.01, 0.01)},
+                {"x": (-0.04, 0.04), "y": (-0.025, 0.025), "z": (-0.01, 0.01)},
+            ),
+        },
+    )
+
+
+@configclass
 class UnitreeGo2RoughEnvCfg(LocomotionVelocityRoughEnvCfg):
     def __post_init__(self):
         # post init of parent
@@ -151,10 +173,30 @@ class UnitreeGo2RoughAsymEnvCfg(UnitreeGo2RoughEnvCfg):
     """Rough Go2 task with the standard actor observations and privileged critic inputs."""
 
     observations: UnitreeGo2RoughAsymObservationsCfg = UnitreeGo2RoughAsymObservationsCfg()
+    curriculum: AsymPayloadDRCurriculumCfg = AsymPayloadDRCurriculumCfg()
 
     def __post_init__(self):
         super().__post_init__()
         self.observations.critic.enable_corruption = False
+
+        # Resample payload and CoM on every episode reset. The curriculum term
+        # updates these ranges at PPO iterations 1500 and 3500.
+        self.events.add_base_mass.mode = "reset"
+        self.events.add_base_mass.params["mass_distribution_params"] = (0.0, 3.0)
+        self.events.add_base_mass.params["operation"] = "add"
+        self.events.add_base_mass.params["recompute_inertia"] = True
+        self.events.base_com = EventTerm(
+            func=mdp.randomize_rigid_body_com_from_default,
+            mode="reset",
+            params={
+                "asset_cfg": SceneEntityCfg("robot", body_names="base"),
+                "com_range": {
+                    "x": (-0.02, 0.02),
+                    "y": (-0.015, 0.015),
+                    "z": (-0.005, 0.005),
+                },
+            },
+        )
 
 
 @configclass
