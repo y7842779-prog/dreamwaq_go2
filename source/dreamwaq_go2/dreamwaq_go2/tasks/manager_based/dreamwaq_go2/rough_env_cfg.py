@@ -8,6 +8,7 @@ from isaaclab.managers import CurriculumTermCfg as CurrTerm
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
+from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR, ISAACLAB_NUCLEUS_DIR
@@ -195,6 +196,25 @@ class UnitreeGo2RoughAsymEnvCfg(UnitreeGo2RoughEnvCfg):
                     "y": (-0.015, 0.015),
                     "z": (-0.005, 0.005),
                 },
+            },
+        )
+
+        # Match the DreamWaQ task's posture and swing-foot reward shaping.
+        self.rewards.joint_pos = RewTerm(
+            func=mdp.joint_position_penalty,
+            weight=-0.7,
+            params={
+                "asset_cfg": SceneEntityCfg("robot", joint_names=".*"),
+                "stand_still_scale": 5.0,
+                "velocity_threshold": 0.3,
+            },
+        )
+        self.rewards.foot_clearance = RewTerm(
+            func=mdp.foot_clearance_penalty,
+            weight=-0.03,
+            params={
+                "asset_cfg": SceneEntityCfg("robot", body_names=".*_foot"),
+                "target_height": 0.12,
             },
         )
 
