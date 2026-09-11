@@ -58,7 +58,8 @@ class UnitreeGo2DreamWaQPPORunnerCfg(UnitreeGo2RoughPPORunnerCfg):
     critic observations to the env's ``critic`` group directly.
     """
 
-    experiment_name = "unitree_go2_dreamwaq_cenet"
+    max_iterations = 5000
+    experiment_name = "unitree_go2_dreamwaq_cenet_payload_curriculum"
     policy = RslRlPpoActorCriticCfg(
         class_name="DreamWaQActorCritic",
         init_noise_std=1.0,
