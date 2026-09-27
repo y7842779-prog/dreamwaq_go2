@@ -99,18 +99,22 @@ gym.register(
     },
 )
 
-for _suffix, _env_class in (
-    ("", "UnitreeGo2DreamWaQPayloadEnvCfg"),
-    ("-Play", "UnitreeGo2DreamWaQPayloadEnvCfg_PLAY"),
-):
-    gym.register(
-        id=f"Isaac-Velocity-Rough-Unitree-Go2-DreamWaQ-PayloadEstimator{_suffix}-v0",
-        entry_point="isaaclab.envs:ManagerBasedRLEnv",
-        disable_env_checker=True,
-        kwargs={
-            "env_cfg_entry_point": f"{__name__}.payload_env_cfg:{_env_class}",
-            "rsl_rl_cfg_entry_point": (
-                f"{agents.__name__}.payload_ppo_cfg:UnitreeGo2DreamWaQPayloadPPORunnerCfg"
-            ),
-        },
-    )
+gym.register(
+    id="Isaac-Velocity-Rough-Unitree-Go2-DreamWaQ-PayloadEstimator-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.payload_env_cfg:UnitreeGo2DreamWaQPayloadEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.payload_ppo_cfg:UnitreeGo2DreamWaQPayloadPPORunnerCfg",
+    },
+)
+
+gym.register(
+    id="Isaac-Velocity-Rough-Unitree-Go2-DreamWaQ-PayloadEstimator-Play-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.payload_env_cfg:UnitreeGo2DreamWaQPayloadEnvCfg_PLAY",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.payload_ppo_cfg:UnitreeGo2DreamWaQPayloadPPORunnerCfg",
+    },
+)
