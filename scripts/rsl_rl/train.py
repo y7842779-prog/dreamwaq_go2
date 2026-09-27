@@ -96,10 +96,13 @@ from isaaclab_tasks.utils.hydra import hydra_task_config
 
 from dreamwaq_go2.tasks.manager_based.dreamwaq_go2.agents.dreamwaq_actor_critic import DreamWaQActorCritic
 from dreamwaq_go2.tasks.manager_based.dreamwaq_go2.agents.dreamwaq_ppo import DreamWaQPPO
+from dreamwaq_go2.tasks.manager_based.dreamwaq_go2.agents.payload_actor_critic import DreamWaQPayloadActorCritic
+from dreamwaq_go2.tasks.manager_based.dreamwaq_go2.agents.payload_ppo import DreamWaQPayloadPPO
 import dreamwaq_go2.tasks  # noqa: F401
 
 rsl_rl_on_policy_runner.DreamWaQActorCritic = DreamWaQActorCritic
 rsl_rl_on_policy_runner.DreamWaQPPO = DreamWaQPPO
+rsl_rl_on_policy_runner.DreamWaQPayloadActorCritic = DreamWaQPayloadActorCritic
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
@@ -115,7 +118,10 @@ def _get_runner_cfg(agent_cfg: RslRlOnPolicyRunnerCfg) -> dict:
     policy_class_name = runner_cfg.get("policy", {}).get("class_name")
     # Isaac Lab's bundled OnPolicyRunner only recognizes "PPO" and "Distillation"
     # as RL training types, so remap the DreamWaQ PPO variant right before runner creation.
-    if alg_class_name == "DreamWaQPPO" or policy_class_name == "DreamWaQActorCritic":
+    if alg_class_name == "DreamWaQPayloadPPO" or policy_class_name == "DreamWaQPayloadActorCritic":
+        rsl_rl_on_policy_runner.PPO = DreamWaQPayloadPPO
+        runner_cfg["algorithm"]["class_name"] = "PPO"
+    elif alg_class_name == "DreamWaQPPO" or policy_class_name == "DreamWaQActorCritic":
         rsl_rl_on_policy_runner.PPO = DreamWaQPPO
         runner_cfg["algorithm"]["class_name"] = "PPO"
     else:

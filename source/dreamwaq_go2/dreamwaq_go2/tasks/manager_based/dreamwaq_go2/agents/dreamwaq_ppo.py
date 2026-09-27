@@ -31,6 +31,7 @@ class DreamWaQRolloutStorage(RolloutStorage):
         actions_shape,
         rnd_state_shape=None,
         device="cpu",
+        next_obs_shape=None,
     ):
         super().__init__(
             training_type,
@@ -42,7 +43,8 @@ class DreamWaQRolloutStorage(RolloutStorage):
             rnd_state_shape=rnd_state_shape,
             device=device,
         )
-        self.next_observations = torch.zeros(num_transitions_per_env, num_envs, *obs_shape, device=self.device)
+        next_obs_shape = obs_shape if next_obs_shape is None else next_obs_shape
+        self.next_observations = torch.zeros(num_transitions_per_env, num_envs, *next_obs_shape, device=self.device)
 
     def add_transitions(self, transition: Transition):
         if transition.next_observations is None:
@@ -145,6 +147,11 @@ class DreamWaQPPO(PPO):
         self.kl_loss_coef = kl_loss_coef
         self.est_target_start_idx = est_target_start_idx
         self.est_target_dim = est_target_dim
+        self.next_obs_dim = None
+
+    def additional_auxiliary_loss(self, obs_batch, critic_obs_batch):
+        """Optional task-specific loss; the original DreamWaQ path is unchanged."""
+        return None, {}
 
     def init_storage(
         self, training_type, num_envs, num_transitions_per_env, actor_obs_shape, critic_obs_shape, actions_shape
@@ -162,6 +169,7 @@ class DreamWaQPPO(PPO):
             actions_shape,
             rnd_state_shape,
             self.device,
+            next_obs_shape=None if self.next_obs_dim is None else [self.next_obs_dim],
         )
 
     def process_env_step(self, rewards, dones, infos, next_obs=None):
@@ -176,6 +184,8 @@ class DreamWaQPPO(PPO):
                 raise KeyError(
                     "Strict Lrecon(next_obs) requires the next policy observation in infos['observations']['policy']."
                 )
+        if self.next_obs_dim is not None:
+            next_obs = next_obs[:, :self.next_obs_dim]
         self.transition.next_observations = next_obs.to(self.device).clone()
 
         if self.rnd:
@@ -200,6 +210,7 @@ class DreamWaQPPO(PPO):
         mean_estimation_loss = 0.0
         mean_reconstruction_loss = 0.0
         mean_kl_loss = 0.0
+        additional_metrics = {}
         # -- RND loss
         if self.rnd:
             mean_rnd_loss = 0.0
@@ -321,7 +332,10 @@ class DreamWaQPPO(PPO):
             target_start = self.est_target_start_idx
             target_stop = target_start + self.est_target_dim
             velocity_target = critic_obs_batch[:, target_start:target_stop].detach()
-            next_current_obs_target, _ = self.policy.split_actor_observations(next_obs_batch)
+            if self.next_obs_dim is None:
+                next_current_obs_target, _ = self.policy.split_actor_observations(next_obs_batch)
+            else:
+                next_current_obs_target = next_obs_batch
             next_current_obs_target = next_current_obs_target.detach()
             reconstruction_valid_mask = (1.0 - dones_batch.float()).view(-1, 1).detach()
 
@@ -365,6 +379,12 @@ class DreamWaQPPO(PPO):
                 + self.recon_loss_coef * reconstruction_loss
                 + self.kl_loss_coef * kl_loss
             )
+
+            additional_loss, metrics = self.additional_auxiliary_loss(obs_batch, critic_obs_batch)
+            if additional_loss is not None:
+                loss = loss + additional_loss
+            for name, value in metrics.items():
+                additional_metrics[name] = additional_metrics.get(name, 0.0) + value
 
             if self.symmetry:
                 if not self.symmetry["use_data_augmentation"]:
@@ -444,4 +464,5 @@ class DreamWaQPPO(PPO):
         if self.symmetry:
             loss_dict["symmetry"] = mean_symmetry_loss
 
+        loss_dict.update({name: value / num_updates for name, value in additional_metrics.items()})
         return loss_dict
