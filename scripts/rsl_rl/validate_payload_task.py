@@ -85,7 +85,7 @@ def main():
     }
     assert set(env_diffs[2]) == expected_payload_diff, env_diffs[2]
     agent_diffs = [differences(serial(agents[1].to_dict()), serial(cfg.to_dict())) for cfg in agents]
-    allowed_agent = {"experiment_name", "policy.class_name", "policy.history_length",
+    allowed_agent = {"experiment_name", "log_root_path", "policy.class_name", "policy.history_length",
                      "policy.payload_history_length", "policy.payload_hidden_dims", "policy.payload_scale_kg",
                      "policy.detach_payload", "policy.use_payload_input", "algorithm.class_name",
                      "algorithm.payload_loss_coef"}

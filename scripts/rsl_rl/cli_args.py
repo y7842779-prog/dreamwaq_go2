@@ -7,10 +7,27 @@ from __future__ import annotations
 
 import argparse
 import random
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg
+
+
+def get_log_root_path(agent_cfg: RslRlOnPolicyRunnerCfg) -> str:
+    """Resolve an optional project-relative log root for training and playback.
+
+    Tasks without log_root_path retain their original working-directory-based
+    logs/rsl_rl layout. Explicit relative roots are anchored to this repository.
+    """
+    configured_root = getattr(agent_cfg, "log_root_path", None)
+    if configured_root is None:
+        root = Path.cwd() / "logs" / "rsl_rl"
+    else:
+        root = Path(configured_root).expanduser()
+        if not root.is_absolute():
+            root = Path(__file__).resolve().parents[2] / root
+    return str((root / agent_cfg.experiment_name).absolute())
 
 
 def add_rsl_rl_args(parser: argparse.ArgumentParser):

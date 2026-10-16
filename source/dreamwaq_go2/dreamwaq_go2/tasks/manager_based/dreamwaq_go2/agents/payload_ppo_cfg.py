@@ -30,7 +30,8 @@ class PayloadPPOAlgorithmCfg(DreamWaQPPOAlgorithmCfg):
 
 @configclass
 class UnitreeGo2DreamWaQPayloadPPORunnerCfg(UnitreeGo2DreamWaQPPORunnerCfg):
-    experiment_name = "unitree_go2_dreamwaq_payload_estimator_curriculum"
+    log_root_path: str = "logs/rsl_rl/payload_comparison"
+    experiment_name = "PayloadEstimator"
 
     def __post_init__(self):
         # Copy actual baseline fields, including inherited hyperparameters.

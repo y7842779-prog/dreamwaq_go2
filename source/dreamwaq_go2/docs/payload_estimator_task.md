@@ -6,7 +6,8 @@
 - 回放：`Isaac-Velocity-Rough-Unitree-Go2-DreamWaQ-PayloadEstimator-Play-v0`
 - 网络：`DreamWaQPayloadActorCritic`
 - 实际算法：`DreamWaQPayloadPPO`（入口适配为 runner 识别的 `PPO` 名称）
-- 独立实验目录：`unitree_go2_dreamwaq_payload_estimator_curriculum`
+- 实验名：`PayloadEstimator`
+- 默认输出：仓库根目录下 `logs/rsl_rl/payload_comparison/PayloadEstimator/<运行时间>/`，不受启动时工作目录影响
 
 原 `DreamWaQ-v0` / `Asym-v0`、其 Play 任务、网络和配置保留。
 主对比默认从头训练，不加载旧 `model_4999.pt`；这保证训练预算不额外增加旧模型的训练量。
@@ -92,6 +93,43 @@ Play 沿用 baseline 的回放设置：关闭观测噪声等，**新建环境的
 - `agent.policy.detach_payload=False`：允许 PPO 梯度进入估计器，输出未必仍保持纯物理意义，属于独立消融。
 
 25 帧历史在环境与网络两侧配套设置；不能只改网络 history 参数。
+
+## 三任务 TensorBoard 对比目录
+
+```text
+/home/hyc/dreamwaq_go2/logs/rsl_rl/payload_comparison/
+├── DreamWaQ_CENet/2026-09-11_20-51-03/
+├── Asym_PPO/2026-09-09_21-44-06/
+├── PayloadEstimator/<新的运行时间>/
+└── comparison_manifest.json
+```
+
+前两项复制原完整运行（TensorBoard events、所有 checkpoint、params、git 快照），原始目录保留。
+`comparison_manifest.json` 记录来源和逐文件 SHA-256；两个最终 checkpoint 均为 `model_4999.pt`。
+不修改已保存的参数文件，里面的旧 experiment_name 作为历史记录保留。
+
+新 PayloadEstimator 从头训练后自动写入第三项。原来 2026-09-27 中断的 3100 轮模型继续保存在
+`logs/rsl_rl/unitree_go2_dreamwaq_payload_estimator_curriculum/2026-09-27_18-30-24/`，未放入这次三组完整训练的对比目录。
+
+```bash
+tensorboard \
+  --logdir=/home/hyc/dreamwaq_go2/logs/rsl_rl/payload_comparison \
+  --port=6006
+```
+
+打开 `http://localhost:6006/`，在 Scalars 中选择三个 run，横轴使用 **Step**（PPO iteration）。
+优先比较 `Train/mean_reward`、`Train/mean_episode_length`、`Metrics/base_velocity/error_vel_xy`、
+`Metrics/base_velocity/error_vel_yaw`，并查看课程 `mass_max`、`terrain_levels` 是否对齐。
+`Loss/payload_mae_kg` 只在新方法中存在，不要求两个 baseline 出现这条曲线。
+训练曲线不是固定测试集结果；它们用于查看相同训练预算下的学习过程。
+
+训练和回放共用日志路径解析。只有配置了 `agent.log_root_path` 的任务采用显式根目录，
+其他任务仍沿用原有默认路径。相对 `agent.log_root_path` 始终相对仓库根目录，绝对路径按原值使用。
+如需单独的调试输出，可以使用 Hydra 覆盖 `agent.log_root_path=logs/payload_debug`。
+旧 PayloadEstimator checkpoint 的回放需通过 `--checkpoint` 指定旧路径。
+
+本次目录调整只改变输出位置和实验名，网络、奖励、负载/COM 课程、seed、环境数量和训练轮数没有变化。
+新训练仍按本文启动命令使用 4096 环境、24 steps、5000 iterations、seed 42，不添加 `--resume`。
 
 ## 验证与产物
 
