@@ -1,0 +1,52 @@
+// Compact method overview of the implemented PayloadEstimator.
+// Seven inference blocks plus one training-only label block.
+// Grounded in payload_estimator_paper_notes.md and the 2026-10-16 run.
+// q_hat = predicted added mass / (8 kg). Fusion is concatenation.
+// The CENet edge carries velocity and latent mean, not sampled VAE z.
+// The label supervises only the payload MLP; it is never a policy input.
+// Critic, decoder, auxiliary losses and layer sizes are omitted intentionally.
+//
+// Render from the repository root; exports remain in the ignored logs directory:
+// mkdir -p logs/payload_paper_figures
+// dot -Tsvg source/dreamwaq_go2/docs/payload_estimator_method_overview.dot -o logs/payload_paper_figures/method_overview.svg
+// dot -Tpdf source/dreamwaq_go2/docs/payload_estimator_method_overview.dot -o logs/payload_paper_figures/method_overview.pdf
+// dot -Tpng -Gdpi=160 source/dreamwaq_go2/docs/payload_estimator_method_overview.dot -o logs/payload_paper_figures/method_overview.png
+
+digraph MethodOverview {
+  graph [rankdir=LR, bgcolor="white", pad=0.22, nodesep=0.40,
+         ranksep=0.60, splines=polyline, outputorder=edgesfirst,
+         fontname="DejaVu Sans", fontsize=11, fontcolor="#5A626B",
+         labelloc=b,
+         label="Solid: inference data flow     Dashed: training-only supervision     SG: stop-gradient"];
+  node [shape=box, style="rounded,filled", fillcolor="#FAFAFA",
+        color="#44515E", fontcolor="#202B36", penwidth=1.2,
+        fontname="DejaVu Sans", fontsize=16, margin="0.18,0.14"];
+  edge [color="#44515E", penwidth=1.25, arrowsize=0.75,
+        fontname="DejaVu Sans", fontsize=13, fontcolor="#344251"];
+
+  current [label="Current observation"];
+  history [label="Observation history"];
+  context [label="Context encoder\nCENet", fillcolor="#EDF3F8"];
+  payload [label="Payload estimator\nMLP", fillcolor="#EAF4EE", color="#39775A"];
+  fusion [label="Feature fusion\nConcatenation"];
+  policy [label="Locomotion policy\nActor"];
+  action [label="Joint actions\naₜ"];
+  target [label="Payload label\n(training only)", style="rounded,dashed,filled",
+          color="#929AA2", fontcolor="#6C747C", fillcolor="white", fontsize=12];
+
+  {rank=same; current; history; target;}
+  {rank=same; context; payload;}
+
+  current -> fusion;
+  history -> context [label="5 frames"];
+  history -> payload [label="25 frames"];
+  context -> fusion [label="v̂, μ"];
+  payload -> fusion [label="q̂  (SG)", color="#39775A", fontcolor="#39775A"];
+  fusion -> policy;
+  policy -> action;
+  target -> payload [style=dashed, color="#929AA2", arrowsize=0.65];
+
+  // Invisible constraints only arrange rows; they are not data-flow connections.
+  current -> history -> target [style=invis, weight=6];
+  context -> payload [style=invis, weight=6];
+}
