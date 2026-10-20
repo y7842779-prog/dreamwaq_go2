@@ -1,0 +1,84 @@
+// Grounded in PayloadEstimator/2026-10-16_21-12-27/model_4999.pt,
+// params/agent.yaml, params/env.yaml and the payload_* / dreamwaq_* source.
+// Blue: inherited DreamWaQ computation. Green: additions in this implementation.
+// SG is applied only on the actor-facing normalized payload prediction.
+// Render from the repository root (generated exports stay out of Git):
+// dot -Tsvg source/dreamwaq_go2/docs/payload_estimator_paper_framework.dot -o logs/payload_paper_figures/framework.svg
+// dot -Tpdf source/dreamwaq_go2/docs/payload_estimator_paper_framework.dot -o logs/payload_paper_figures/framework.pdf
+// dot -Tpng -Gdpi=150 source/dreamwaq_go2/docs/payload_estimator_paper_framework.dot -o logs/payload_paper_figures/framework.png
+
+digraph PayloadEstimator {
+  graph [rankdir=LR, bgcolor="white", pad=0.28, nodesep=0.38, ranksep=0.40,
+         splines=polyline, fontname="DejaVu Sans", fontsize=16, labelloc=b,
+         labeljust=c, outputorder=edgesfirst,
+         label=<
+<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="8" CELLPADDING="10">
+  <TR><TD COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="18"><B>(b) Training objectives and gradient routes</B></FONT></TD></TR>
+  <TR>
+    <TD BGCOLOR="#EDF4FC" ALIGN="LEFT" VALIGN="TOP">
+      <B>Inherited CENet supervision</B><BR ALIGN="LEFT"/>
+      Velocity MSE + next-observation MSE + KL<BR ALIGN="LEFT"/>
+      Weights: 0.1 / 0.1 / 0.0001<BR ALIGN="LEFT"/>
+      (μ, logvar) → sampled z (16)<BR ALIGN="LEFT"/>
+      Decoder: 16 → 64 → 128 → 45<BR ALIGN="LEFT"/>
+      Target: next current observation (45)<BR ALIGN="LEFT"/>
+      Updates CENet; decoder used during training<BR ALIGN="LEFT"/>
+    </TD>
+    <TD BGCOLOR="#E8F5EC" ALIGN="LEFT" VALIGN="TOP">
+      <B>Added payload supervision</B><BR ALIGN="LEFT"/>
+      Actual added base mass m (simulator only)<BR ALIGN="LEFT"/>
+      L<SUB>mass</SUB> = Huber(q̂, m / (8 kg)), weight 0.1<BR ALIGN="LEFT"/>
+      Updates Payload MLP only<BR ALIGN="LEFT"/>
+      q̂ = m̂ / (8 kg); predicted added mass m̂ = 8q̂ kg<BR ALIGN="LEFT"/>
+      No true-mass input to actor or value network<BR ALIGN="LEFT"/>
+      SG blocks actor gradients to Payload MLP<BR ALIGN="LEFT"/>
+    </TD>
+    <TD BGCOLOR="#F2F3F5" ALIGN="LEFT" VALIGN="TOP">
+      <B>Inherited asymmetric PPO</B><BR ALIGN="LEFT"/>
+      Actor surrogate → actor head + CENet encoder,<BR ALIGN="LEFT"/>
+      velocity head and μ head (not logvar / decoder)<BR ALIGN="LEFT"/>
+      Value loss → critic; entropy → action std<BR ALIGN="LEFT"/>
+      Critic: 238 → 512 → 256 → 128 → 1<BR ALIGN="LEFT"/>
+      Rollout critic buffer: 238 + mass label = 239<BR ALIGN="LEFT"/>
+      Label column removed before value evaluation<BR ALIGN="LEFT"/>
+    </TD>
+  </TR>
+  <TR><TD COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="14">Blue: inherited structure   |   Green: added payload pathway   |   SG: stop-gradient (detach)   |   Hidden layers: ELU</FONT></TD></TR>
+  <TR><TD COLSPAN="3" ALIGN="LEFT"><FONT POINT-SIZE="14">Actor observation buffer = current 45 + history 1125 = 1170. Both history branches run at 50 Hz. One joint optimizer; no residual-action branch.</FONT></TD></TR>
+</TABLE>>];
+  node [shape=box, style="rounded,filled", fillcolor="#EDF4FC", color="#4576A9",
+        fontcolor="#162B40", fontname="DejaVu Sans", fontsize=17, penwidth=1.5,
+        margin="0.16,0.14"];
+  edge [color="#53677A", arrowsize=0.8, penwidth=1.5,
+        fontname="DejaVu Sans", fontsize=13];
+
+  subgraph cluster_deploy {
+    label="(a) Payload-conditioned locomotion policy — available at deployment";
+    labelloc=t; labeljust=l; fontsize=20;
+    color="#B9C5CF"; style="rounded"; margin=22;
+
+    history [label="Observation history\n25 × 45 = 1125\n(term-major)", fillcolor="#F6F7F9", color="#778797"];
+    cenet [label="CENet encoder\n225 → 128 → 64\nLast 5 frames per term"];
+    context [label="Velocity estimate: 3\nLatent mean μ: 16\n─────────────\nlogvar: 16 (training)"];
+    payload [label="Payload MLP\n1125 → 64 → 32 → 1", fillcolor="#E8F5EC", color="#2E8B57", penwidth=2];
+    mass [label="Normalized mass q̂ = m̂ / (8 kg)\n1 dimension\nSG before concatenation", fillcolor="#E8F5EC", color="#2E8B57", penwidth=2];
+    current [label="Current observation\n45 dimensions", fillcolor="#F6F7F9", color="#778797"];
+    concat [label="Concatenate\n[current, v̂, μ, SG(q̂)]\n45 + 3 + 16 + 1 = 65", fillcolor="#FFF5DF", color="#B18732"];
+    actor [label="Actor head\n65 → 512 → 256\n→ 128 → 12"];
+    action [label="12 joint-position actions\nTraining: Gaussian sample\nDeployment: action mean", fillcolor="#F6F7F9", color="#778797"];
+
+    {rank=same; cenet; payload;}
+    {rank=same; current; context; mass;}
+    history -> cenet [label="last 5 / term", minlen=1];
+    history -> payload [label="all 25 frames", color="#2E8B57"];
+    cenet -> context;
+    payload -> mass [color="#2E8B57"];
+    current -> concat;
+    context -> concat [label="v̂, μ only"];
+    mass -> concat [color="#2E8B57", penwidth=2];
+    concat -> actor;
+    actor -> action;
+    current -> context -> mass [style=invis, weight=4];
+    cenet -> payload [style=invis, weight=4];
+  }
+}
