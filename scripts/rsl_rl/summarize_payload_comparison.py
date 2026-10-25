@@ -99,8 +99,10 @@ def main():
         terrain,mass,yaw,model,offset=key
         reference_key=(terrain,mass,yaw,"DreamWaQ_CENet",0.) if args.phase=="comparison" else (terrain,mass,yaw,"PayloadEstimator",0.)
         reference=manifests[reference_key]
-        assert reference["initial_state_sha256"]==manifests[key]["initial_state_sha256"],key
-        checks.append(dict(terrain=terrain,mass=mass,yaw=yaw,model=model,offset=offset,initial_physics_history_identical=True))
+        assert reference["paired_reference_sha256"]==manifests[key]["paired_reference_sha256"],key
+        assert reference["initial_pairing_verified"] and manifests[key]["initial_pairing_verified"]
+        assert reference["initial_conditions_csv_sha256"]==manifests[key]["initial_conditions_csv_sha256"]
+        checks.append(dict(terrain=terrain,mass=mass,yaw=yaw,model=model,offset=offset,initial_pairing_verified=True))
         by_trial={r["trial"]:r for r in groups[reference_key]}
         for row in rows:
             ref=by_trial[row["trial"]]

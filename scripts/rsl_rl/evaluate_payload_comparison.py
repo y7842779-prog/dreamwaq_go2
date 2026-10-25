@@ -58,7 +58,7 @@ import dreamwaq_go2.tasks  # noqa: F401, E402
 
 from comparison_support import (
     CHECKPOINTS, PhysicalMassOffset, canonical, course_mesh, differences, episode_metrics,
-    initial_samples, load_comparison_policy, model_observation, save_csv, saved_env, validate_saved_contracts,
+    initial_samples, load_comparison_policy, model_observation, save_csv, saved_env, validate_saved_contracts, validate_initial_pair,
 )
 from payload_diagnostics import ROOT, sha256, write_json
 
@@ -150,7 +150,7 @@ def config_for_run(samples, directory):
     return cfg
 
 
-def run_case(model, offset, samples, directory, reference_hash):
+def run_case(model, offset, samples, directory, reference):
     directory.mkdir()
     create_new_stage()
     cfg = config_for_run(samples, directory)
@@ -178,8 +178,10 @@ def run_case(model, offset, samples, directory, reference_hash):
                 terrain=args.terrain, goal_x=args.goal_x)
             write_json(directory / "initial_state.json", initial)
             initial_hash = sha256(directory / "initial_state.json")
-            if reference_hash is not None and initial_hash != reference_hash:
-                raise AssertionError(f"Initial physics/history differs for {model}, offset={offset}")
+            if reference is None:
+                reference = (initial, initial_hash)
+            pairing = validate_initial_pair(initial, reference[0])
+            write_json(directory / "initial_pairing_checks.json", pairing)
             start_position = robot.data.root_pos_w.cpu().numpy().copy()
             rows = [[] for _ in samples]
             alive = np.ones(args.num_trials, dtype=bool)
@@ -225,6 +227,7 @@ def run_case(model, offset, samples, directory, reference_hash):
             assert sha256(CHECKPOINTS[model]) == loaded["checkpoint_sha256"]
             manifest = dict(status="complete", model=model, offset_kg=offset, terrain=args.terrain, mass_kg=args.mass_kg,
                 yaw_rate=args.yaw_rate, initial_state_sha256=initial_hash, checkpoint=loaded,
+                paired_reference_sha256=reference[1], initial_pairing_verified=True,
                 num_trials=args.num_trials, evaluation_seed=args.evaluation_seed, duration=args.duration, warmup=args.warmup,
                 goal_x=args.goal_x, physics_dt=env.physics_dt, control_dt=env.step_dt,
                 action_scale=cfg.actions.joint_pos.scale, joint_order=robot.joint_names,
@@ -235,7 +238,7 @@ def run_case(model, offset, samples, directory, reference_hash):
                 torch_version=torch.__version__, numpy_version=np.__version__)
             write_json(directory / "manifest.json", manifest)
             print("CASE_COMPLETE",model,offset,"passed",manifest["passed"],"failed",manifest["failures"],flush=True)
-            return initial_hash
+            return reference
     finally:
         if intervention:
             intervention.close()
@@ -262,7 +265,7 @@ def main():
         name = model if args.phase == "comparison" else f"offset_{offset:+g}"
         reference = run_case(model, offset, samples, args.output_dir / name, reference)
     write_json(args.output_dir / "manifest.json",dict(status="complete",args=vars(args),cases=cases,
-        initial_state_sha256=reference,terrain_vertices_sha256=sha256(args.output_dir / "terrain_vertices.csv")))
+        initial_state_sha256=reference[1],terrain_vertices_sha256=sha256(args.output_dir / "terrain_vertices.csv")))
 
 
 if __name__ == "__main__":

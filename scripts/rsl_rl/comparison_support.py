@@ -146,6 +146,26 @@ def initial_samples(base_seed, count):
     return rows
 
 
+def validate_initial_pair(initial, reference):
+    """PhysX quaternion normalization can differ at sub-nanoradian precision.
+
+    Masses, inertias, materials and gains remain exact. Only states and derived
+    observations allow 1e-7 absolute floating-point error, with actual errors saved.
+    """
+    checks = {}
+    for key, left in initial.items():
+        right = reference[key]
+        if key in ("root_state", "full_policy_observation"):
+            a, b = np.asarray(left), np.asarray(right)
+            np.testing.assert_allclose(a, b, rtol=0, atol=1e-7, err_msg=key)
+            checks[key] = dict(max_abs_difference=float(np.max(np.abs(a-b))), absolute_tolerance=1e-7)
+        else:
+            if left != right:
+                raise AssertionError(f"Physical initial-condition mismatch: {key}")
+            checks[key] = dict(exactly_equal=True)
+    return checks
+
+
 def course_mesh(kind, size=(16., 20.)):
     """Deterministic walking surface; origin is on the flat approach at x=2 m."""
     import trimesh

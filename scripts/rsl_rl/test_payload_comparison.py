@@ -7,7 +7,7 @@ import torch
 
 from comparison_support import (
     PhysicalMassOffset, RUNS, course_mesh, initial_samples, load_comparison_policy,
-    model_observation, validate_saved_contracts,
+    model_observation, validate_saved_contracts, validate_initial_pair,
 )
 
 
@@ -66,6 +66,15 @@ class ComparisonContracts(unittest.TestCase):
                         torch.testing.assert_close(actual, original, rtol=0, atol=0)
                 finally:
                     hook.close()
+
+    def test_pairing_tolerates_only_tiny_state_rounding(self):
+        initial = dict(root_state=[[0., .4]], full_policy_observation=[[1., 0.]], masses=[[4.]])
+        same = dict(root_state=[[1e-10, .4]], full_policy_observation=[[1., 1e-10]], masses=[[4.]])
+        validate_initial_pair(initial, same)
+        with self.assertRaises(AssertionError):
+            validate_initial_pair(initial, dict(same, masses=[[4.000001]]))
+        with self.assertRaises(AssertionError):
+            validate_initial_pair(initial, dict(same, root_state=[[1e-5, .4]]))
 
 
 if __name__ == "__main__":
