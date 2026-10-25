@@ -154,3 +154,56 @@ python -B scripts/rsl_rl/validate_payload_task.py --headless --device cuda:0
 
 - DreamWaQ：`scripts/rsl_rl/logs/rsl_rl/unitree_go2_dreamwaq_cenet_payload_curriculum/2026-09-11_20-51-03/model_4999.pt`
 - Asym：`scripts/rsl_rl/logs/rsl_rl/unitree_go2_rough_asym_payload_curriculum/2026-09-09_21-44-06/model_4999.pt`
+
+
+## 无质量输入消融：PayloadEstimator_NoMassInput
+
+新增独立任务：
+
+- 训练：`Isaac-Velocity-Rough-Unitree-Go2-DreamWaQ-PayloadEstimator-NoMassInput-v0`
+- 回放：`Isaac-Velocity-Rough-Unitree-Go2-DreamWaQ-PayloadEstimator-NoMassInput-Play-v0`
+- Runner：`UnitreeGo2DreamWaQPayloadNoMassInputPPORunnerCfg`
+- 输出：`logs/rsl_rl/payload_comparison/PayloadEstimator_NoMassInput/<时间>_seed42/`
+
+本消融与完整 PayloadEstimator 使用同一个环境类、1170 维 Actor 观测、25 帧质量历史、
+5 帧 CENet、65 维 Actor head 和原有质量监督。只有 `policy.use_payload_input=False`：
+预测质量在 Actor 输入中置零；估计器继续由 `0.1 × Huber` 监督更新，
+`detach_payload=True` 保留。Critic 仍只使用 238 维，真实质量列仅用于监督。
+默认训练预算为 4096 envs × 24 steps × 5000 iterations。
+日志名称独立，原有三个任务及其运行目录保留。
+
+在仓库根目录运行以下命令，从头训练 seed 42；不添加 `--resume` 或 `--checkpoint`：
+
+```bash
+cd /home/hyc/dreamwaq_go2
+export PYTHONDONTWRITEBYTECODE=1
+export PYTHONPATH="/home/hyc/dreamwaq_go2/source/dreamwaq_go2:${PYTHONPATH:-}"
+PYTHONEXE=/home/hyc/miniconda3/envs/env_isaaclab/bin/python \
+/home/hyc/isaac-sim/python.sh scripts/rsl_rl/train.py \
+  --task Isaac-Velocity-Rough-Unitree-Go2-DreamWaQ-PayloadEstimator-NoMassInput-v0 \
+  --headless --device cuda:0 --num_envs 4096 --max_iterations 5000 \
+  --seed 42 --run_name seed42 --logger tensorboard
+```
+
+该启动器为现有 Python 环境补齐 Isaac Sim 依赖，无需重新安装依赖。
+后续重复实验同时修改 `--seed` 与 `--run_name`，例如 `--seed 43 --run_name seed43`。
+其他方法也需对应训练 seed 43、44，才能比较训练随机性的影响。
+正式对比中保持 4096 环境和 5000 iterations；缩小环境数仅用于 smoke test。
+
+验证命令采用同样的环境变量和启动器：
+
+```bash
+PYTHONEXE=/home/hyc/miniconda3/envs/env_isaaclab/bin/python \
+/home/hyc/isaac-sim/python.sh scripts/rsl_rl/test_payload_estimator.py
+
+PYTHONEXE=/home/hyc/miniconda3/envs/env_isaaclab/bin/python \
+/home/hyc/isaac-sim/python.sh scripts/rsl_rl/validate_payload_task.py \
+  --headless --device cuda:0 --no-mass-input \
+  --output-dir logs/payload_no_mass_input_validation
+```
+
+验证器比较四个任务的实际配置，确认消融仅改变质量通道和实验名；
+CPU 测试确认屏蔽质量输入后 Actor 对估计值变化不敏感，质量分支仍可接受监督并更新。
+短仿真检查 16 envs、两次 PPO 迭代、课程/标签/历史、checkpoint 与导出链路。
+训练后使用与已有三个模型一致的负载、地形、速度指令和配对初态进行评测。
+该任务用于检验质量输入通道的作用；不单独证明长历史或质量监督优于所有替代设计。

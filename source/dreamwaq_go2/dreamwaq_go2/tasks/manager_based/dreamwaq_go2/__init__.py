@@ -118,3 +118,25 @@ gym.register(
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.payload_ppo_cfg:UnitreeGo2DreamWaQPayloadPPORunnerCfg",
     },
 )
+
+
+# Mass-channel ablation: share the complete method's environment and PPO settings.
+gym.register(
+    id="Isaac-Velocity-Rough-Unitree-Go2-DreamWaQ-PayloadEstimator-NoMassInput-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.payload_env_cfg:UnitreeGo2DreamWaQPayloadEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.payload_ppo_cfg:UnitreeGo2DreamWaQPayloadNoMassInputPPORunnerCfg",
+    },
+)
+
+gym.register(
+    id="Isaac-Velocity-Rough-Unitree-Go2-DreamWaQ-PayloadEstimator-NoMassInput-Play-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.payload_env_cfg:UnitreeGo2DreamWaQPayloadEnvCfg_PLAY",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.payload_ppo_cfg:UnitreeGo2DreamWaQPayloadNoMassInputPPORunnerCfg",
+    },
+)

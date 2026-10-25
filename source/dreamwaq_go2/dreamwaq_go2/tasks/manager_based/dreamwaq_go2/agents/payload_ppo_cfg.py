@@ -41,3 +41,14 @@ class UnitreeGo2DreamWaQPayloadPPORunnerCfg(UnitreeGo2DreamWaQPPORunnerCfg):
         baseline_algorithm = self.algorithm.to_dict()
         baseline_algorithm.pop("class_name")
         self.algorithm = PayloadPPOAlgorithmCfg(**baseline_algorithm)
+
+
+@configclass
+class UnitreeGo2DreamWaQPayloadNoMassInputPPORunnerCfg(UnitreeGo2DreamWaQPayloadPPORunnerCfg):
+    """Keep mass supervision and history; mask only the actor's mass input."""
+
+    experiment_name = "PayloadEstimator_NoMassInput"
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.policy.use_payload_input = False

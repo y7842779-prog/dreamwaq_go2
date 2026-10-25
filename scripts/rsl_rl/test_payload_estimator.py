@@ -29,9 +29,9 @@ PPO = importlib.import_module(package.__name__ + ".dreamwaq_ppo").DreamWaQPPO
 PayloadPPO = importlib.import_module(package.__name__ + ".payload_ppo").DreamWaQPayloadPPO
 
 
-def model(payload=True):
+def model(payload=True, **kwargs):
     with contextlib.redirect_stdout(io.StringIO()):
-        return (Payload(1170, 239, 12) if payload else Base(270, 238, 12))
+        return (Payload(1170, 239, 12, **kwargs) if payload else Base(270, 238, 12, **kwargs))
 
 
 def rollout_update(policy, algorithm, actor_dim, critic_dim):
@@ -124,6 +124,36 @@ class PayloadContracts(unittest.TestCase):
             restored_alg.optimizer.load_state_dict(saved["optimizer"])
             obs = torch.randn(2, 1170)
             torch.testing.assert_close(restored.act_inference(obs), policy.act_inference(obs), rtol=0, atol=0)
+
+    def test_no_mass_input_keeps_supervision_during_ppo(self):
+        policy = model(use_payload_input=False)
+        self.assertFalse(policy.actor.use_payload_input)
+        self.assertTrue(policy.actor.detach_payload)
+        # Use a nonzero mass column so invariance cannot pass just because the
+        # complete actor initializes this column to zero.
+        with torch.no_grad():
+            policy.actor.base_actor.policy_head[0].weight[:, -1].fill_(0.1)
+        obs = torch.randn(4, 1170)
+        before_action = policy.act_inference(obs).detach().clone()
+        before_prediction = policy.predict_payload(obs).detach().clone()
+        with torch.no_grad():
+            policy.actor.payload_estimator[-1].bias.add_(1.0)
+        torch.testing.assert_close(policy.act_inference(obs), before_action, rtol=0, atol=0)
+        self.assertFalse(torch.equal(policy.predict_payload(obs), before_prediction))
+        policy.actor.use_payload_input = True
+        self.assertFalse(torch.allclose(policy.act_inference(obs), before_action))
+        policy.actor.use_payload_input = False
+
+        estimator_before = policy.actor.payload_estimator[0].weight.detach().clone()
+        head_before = policy.actor.base_actor.policy_head[0].weight.detach().clone()
+        alg, metrics = rollout_update(policy, PayloadPPO, 1170, 239)
+        self.assertEqual(alg.storage.observations.shape[-1], 1170)
+        self.assertFalse(torch.equal(estimator_before, policy.actor.payload_estimator[0].weight))
+        self.assertFalse(torch.equal(head_before[:, :-1], policy.actor.base_actor.policy_head[0].weight[:, :-1]))
+        torch.testing.assert_close(policy.actor.base_actor.policy_head[0].weight[:, -1],
+                                   head_before[:, -1], rtol=0, atol=0)
+        self.assertGreater(metrics["payload_mae_kg"], 0)
+        self.assertTrue(all(torch.isfinite(torch.tensor(value)) for value in metrics.values()))
 
     def test_baseline_update_matches_pre_feature_commit(self):
         relative = (AGENTS / "dreamwaq_ppo.py").relative_to(ROOT)

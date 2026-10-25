@@ -19,6 +19,8 @@ from isaaclab.app import AppLauncher
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--output-dir", default="logs/payload_estimator_validation")
+parser.add_argument("--no-mass-input", action="store_true",
+                    help="Smoke-test the registered mass-channel ablation task.")
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 app = AppLauncher(args).app
@@ -39,7 +41,7 @@ from dreamwaq_go2.tasks.manager_based.dreamwaq_go2.agents.payload_ppo import Dre
 
 ROOT = Path(__file__).resolve().parents[2]
 TASKS = ["Isaac-Velocity-Rough-Unitree-Go2-" + suffix + "-v0"
-         for suffix in ("Asym", "DreamWaQ", "DreamWaQ-PayloadEstimator")]
+         for suffix in ("Asym", "DreamWaQ", "DreamWaQ-PayloadEstimator", "DreamWaQ-PayloadEstimator-NoMassInput")]
 OUT = Path(args.output_dir).resolve()
 OUT.mkdir(parents=True, exist_ok=True)
 
@@ -84,27 +86,39 @@ def main():
           ("base_ang_vel", "projected_gravity", "velocity_commands", "joint_pos", "joint_vel", "actions")],
     }
     assert set(env_diffs[2]) == expected_payload_diff, env_diffs[2]
+    assert serial(env_cfgs[3].to_dict()) == serial(env_cfgs[2].to_dict())
     agent_diffs = [differences(serial(agents[1].to_dict()), serial(cfg.to_dict())) for cfg in agents]
     allowed_agent = {"experiment_name", "log_root_path", "policy.class_name", "policy.history_length",
                      "policy.payload_history_length", "policy.payload_hidden_dims", "policy.payload_scale_kg",
                      "policy.detach_payload", "policy.use_payload_input", "algorithm.class_name",
                      "algorithm.payload_loss_coef"}
     assert set(agent_diffs[2]) <= allowed_agent, agent_diffs[2]
+    assert set(differences(serial(agents[2].to_dict()), serial(agents[3].to_dict()))) == {
+        "experiment_name", "policy.use_payload_input",
+    }
+    assert agents[2].policy.use_payload_input is True
+    assert agents[3].policy.use_payload_input is False
+    assert agents[3].experiment_name == "PayloadEstimator_NoMassInput"
     assert all(agent.max_iterations == 5000 and agent.num_steps_per_env == 24 for agent in agents)
     for filename in ("train.py", "play.py"):
         adapter = entry_adapter(filename)
-        for cfg, expected in zip(agents, (RslRlPPO, DreamWaQPPO, DreamWaQPayloadPPO)):
+        for cfg, expected in zip(agents, (RslRlPPO, DreamWaQPPO, DreamWaQPayloadPPO, DreamWaQPayloadPPO)):
             assert adapter(cfg)["algorithm"]["class_name"] == "PPO"
             assert runner_module.PPO is expected
-    play_cfg = load_cfg_from_registry(TASKS[2].replace("-v0", "-Play-v0"), "env_cfg_entry_point")
+    task_index = 3 if args.no_mass_input else 2
+    task = TASKS[task_index]
+    play_task = task.replace("-v0", "-Play-v0")
+    play_cfg = load_cfg_from_registry(play_task, "env_cfg_entry_point")
+    play_agent = load_cfg_from_registry(play_task, "rsl_rl_cfg_entry_point")
+    assert serial(play_agent.to_dict()) == serial(agents[task_index].to_dict())
     assert play_cfg.observations.policy.history_actions.history_length == 25
     assert not play_cfg.observations.policy.enable_corruption
-    print("PASS: three environment configs match outside observations; train/play dispatch matches.", flush=True)
-    for task, cfg, agent in zip(TASKS, env_cfgs, agents):
-        dump_yaml(str(OUT / task / "env_default.yaml"), cfg)
-        dump_yaml(str(OUT / task / "agent_default.yaml"), agent)
+    print("PASS: four task configs and dispatch match; ablation differs only in mass input and log name.", flush=True)
+    for registered_task, default_env, default_agent in zip(TASKS, env_cfgs, agents):
+        dump_yaml(str(OUT / registered_task / "env_default.yaml"), default_env)
+        dump_yaml(str(OUT / registered_task / "agent_default.yaml"), default_agent)
 
-    cfg, agent = env_cfgs[2], agents[2]
+    cfg, agent = env_cfgs[task_index], agents[task_index]
     cfg.scene.num_envs = 16
     cfg.scene.terrain.terrain_generator.num_rows = 2
     cfg.scene.terrain.terrain_generator.num_cols = 4
@@ -113,13 +127,15 @@ def main():
     cfg.sim.device = agent.device = args.device or "cuda:0"
     dump_yaml(str(OUT / "env_smoke.yaml"), cfg)
     dump_yaml(str(OUT / "agent_smoke.yaml"), agent)
-    env = RslRlVecEnvWrapper(gym.make(TASKS[2], cfg=cfg), clip_actions=agent.clip_actions)
+    env = RslRlVecEnvWrapper(gym.make(task, cfg=cfg), clip_actions=agent.clip_actions)
     raw = env.unwrapped
     try:
         runner_module.DreamWaQPayloadActorCritic = DreamWaQPayloadActorCritic
         runner = OnPolicyRunner(env, entry_adapter("train.py")(agent), log_dir=str(OUT / "training"), device=agent.device)
         assert isinstance(runner.alg, DreamWaQPayloadPPO)
         policy = runner.alg.policy
+        assert policy.actor.use_payload_input is (not args.no_mass_input)
+        assert policy.actor.detach_payload is True
         obs, extras = env.get_observations()
         assert obs.shape == (16, 1170)
         assert extras["observations"]["critic"].shape == (16, 239)
@@ -164,7 +180,9 @@ def main():
         export_policy_as_onnx(policy, str(OUT / "exported"), runner.obs_normalizer)
         scripted = torch.jit.load(str(OUT / "exported/policy.pt"))
         torch.testing.assert_close(scripted(obs.cpu()), before.cpu(), rtol=1e-4, atol=1e-5)
-        report = {"tasks": TASKS, "environment_differences_from_dreamwaq": env_diffs,
+        report = {"tasks": TASKS, "smoke_task": task,
+                  "use_payload_input": policy.actor.use_payload_input,
+                  "environment_differences_from_dreamwaq": env_diffs,
                   "agent_differences_from_dreamwaq": agent_diffs, "stage_samples": stage_samples,
                   "validation": "16 envs, 2 iterations x 24 steps, 5 epochs, 4 minibatches; reset/labels/export/restore passed",
                   "checkpoint": str(checkpoint), "repo": str(ROOT),
