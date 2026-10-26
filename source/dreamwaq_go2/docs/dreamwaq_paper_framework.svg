@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">DreamWaQ-CENet paper-style algorithm framework</title>
+  <desc id="desc">A compact academic diagram showing simulation observations, a history encoder, context-aided actor, privileged critic, PPO optimization, and combined auxiliary objectives.</desc>
+
+  <defs>
+    <style>
+      .sans { font-family: Arial, Helvetica, "Noto Sans CJK SC", sans-serif; }
+      .serif { font-family: Georgia, "Times New Roman", "Noto Serif CJK SC", serif; }
+      .title { font-size: 27px; font-weight: 700; fill: #183247; }
+      .subtitle { font-size: 14px; fill: #647481; letter-spacing: 0.25px; }
+      .frame-label { font-size: 16px; font-weight: 700; fill: #344957; letter-spacing: 1.2px; }
+      .module-title { font-size: 19px; font-weight: 700; fill: #183247; }
+      .module-subtitle { font-size: 14px; fill: #5d6d78; }
+      .body { font-size: 15px; fill: #263b49; }
+      .small { font-size: 13px; fill: #62727d; }
+      .formula { font-size: 19px; font-style: italic; fill: #173b56; }
+      .edge-label { font-size: 13px; font-weight: 600; fill: #536571; }
+      .edge-label-green { font-size: 14px; font-weight: 700; fill: #367653; }
+      .edge-label-orange { font-size: 13px; font-weight: 700; fill: #b56620; }
+      .edge-label-purple { font-size: 13px; font-weight: 700; fill: #6f5297; }
+      .number { font-size: 14px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+    </style>
+
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#347ba7"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4b936a"/>
+    </marker>
+    <marker id="arrow-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#647681"/>
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#d8802b"/>
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8062a8"/>
+    </marker>
+  </defs>
+
+  <!-- Canvas and training boundary -->
+  <rect width="1600" height="900" fill="#ffffff"/>
+  <text x="800" y="38" text-anchor="middle" class="sans title">DreamWaQ-CENet: History-Conditioned Asymmetric Actor–Critic</text>
+  <text x="800" y="61" text-anchor="middle" class="sans subtitle">Isaac-Velocity-Rough-Unitree-Go2-DreamWaQ-v0</text>
+
+  <rect x="28" y="82" width="1544" height="754" rx="32" fill="#fbfcfd" stroke="#3d4c56" stroke-width="2" stroke-dasharray="9 7"/>
+  <rect x="62" y="68" width="238" height="30" rx="15" fill="#ffffff"/>
+  <text x="181" y="89" text-anchor="middle" class="sans frame-label">TRAINING IN SIMULATION</text>
+  <text x="1530" y="107" text-anchor="end" class="sans small">Solid blue/green path is retained for deployment</text>
+
+  <!-- Connections are drawn before modules so that boxes mask line endpoints. -->
+  <g id="connections" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Main policy path -->
+    <path d="M 405 368 C 560 368, 680 368, 810 370" stroke="#347ba7" stroke-width="3" marker-end="url(#arrow-blue)"/>
+    <path d="M 405 505 C 447 505, 468 526, 510 535" stroke="#4b936a" stroke-width="3" marker-end="url(#arrow-green)"/>
+    <path d="M 780 525 C 810 507, 831 446, 838 400" stroke="#4b936a" stroke-width="3" marker-end="url(#arrow-green)"/>
+    <path d="M 868 370 L 900 370" stroke="#347ba7" stroke-width="3" marker-end="url(#arrow-blue)"/>
+
+    <!-- Action closes the environment loop -->
+    <path d="M 1040 275 L 1040 128 L 250 128 L 250 154" stroke="#347ba7" stroke-width="3" marker-end="url(#arrow-blue)"/>
+
+    <!-- Asymmetric critic path -->
+    <path d="M 405 650 C 570 650, 735 650, 900 628" stroke="#647681" stroke-width="2.6" marker-end="url(#arrow-gray)"/>
+
+    <!-- Training signals into PPO -->
+    <path d="M 405 249 C 680 176, 1090 176, 1390 275" stroke="#647681" stroke-width="2.1" marker-end="url(#arrow-gray)"/>
+    <path d="M 1180 370 L 1260 370" stroke="#647681" stroke-width="2.4" marker-end="url(#arrow-gray)"/>
+    <path d="M 1180 628 C 1224 617, 1218 471, 1260 438" stroke="#647681" stroke-width="2.4" marker-end="url(#arrow-gray)"/>
+
+    <!-- Optimization updates: only three clean dashed arrows -->
+    <path d="M 1390 275 L 1390 224 L 1040 224 L 1040 275" stroke="#d8802b" stroke-width="2.8" stroke-dasharray="10 7" marker-end="url(#arrow-orange)"/>
+    <path d="M 1325 465 L 1325 510 L 1050 510 L 1050 555" stroke="#d8802b" stroke-width="2.8" stroke-dasharray="10 7" marker-end="url(#arrow-orange)"/>
+    <path d="M 1260 650 L 1218 650 L 1218 768 L 645 768 L 645 625" stroke="#8062a8" stroke-width="2.8" stroke-dasharray="10 7" marker-end="url(#arrow-purple)"/>
+  </g>
+
+  <!-- Edge labels -->
+  <g id="edge-labels" class="sans">
+    <rect x="576" y="349" width="38" height="23" rx="8" fill="#fbfcfd"/>
+    <text x="595" y="366" text-anchor="middle" class="edge-label">oₜ</text>
+
+    <rect x="443" y="490" width="44" height="23" rx="8" fill="#fbfcfd"/>
+    <text x="465" y="507" text-anchor="middle" class="edge-label-green">oᴴₜ</text>
+
+    <rect x="776" y="450" width="112" height="25" rx="9" fill="#fbfcfd"/>
+    <text x="832" y="468" text-anchor="middle" class="edge-label-green">context ĉₜ</text>
+
+    <rect x="566" y="109" width="73" height="24" rx="8" fill="#fbfcfd"/>
+    <text x="603" y="126" text-anchor="middle" class="edge-label">action aₜ</text>
+
+    <rect x="647" y="633" width="49" height="24" rx="8" fill="#fbfcfd"/>
+    <text x="671" y="650" text-anchor="middle" class="edge-label">sₜ</text>
+
+    <rect x="1133" y="188" width="143" height="24" rx="8" fill="#fbfcfd"/>
+    <text x="1204" y="205" text-anchor="middle" class="edge-label">rewards &amp; transitions</text>
+
+    <rect x="1192" y="349" width="56" height="24" rx="8" fill="#fbfcfd"/>
+    <text x="1220" y="366" text-anchor="middle" class="edge-label">πθ, log π</text>
+
+    <rect x="1200" y="530" width="45" height="24" rx="8" fill="#fbfcfd"/>
+    <text x="1222" y="547" text-anchor="middle" class="edge-label">Vψ</text>
+
+    <rect x="1121" y="210" width="141" height="24" rx="8" fill="#fbfcfd"/>
+    <text x="1191" y="227" text-anchor="middle" class="edge-label-orange">policy update</text>
+
+    <rect x="1135" y="493" width="122" height="24" rx="8" fill="#fbfcfd"/>
+    <text x="1196" y="510" text-anchor="middle" class="edge-label-orange">value update</text>
+
+    <rect x="846" y="751" width="155" height="24" rx="8" fill="#fbfcfd"/>
+    <text x="924" y="768" text-anchor="middle" class="edge-label-purple">auxiliary gradients</text>
+  </g>
+
+  <!-- Module 1: Environment and observations -->
+  <g id="environment-observations">
+    <rect x="70" y="154" width="360" height="571" rx="22" fill="#f2f7fb" stroke="#5a91b6" stroke-width="2"/>
+    <circle cx="99" cy="182" r="14" fill="#347ba7"/>
+    <text x="99" y="182" class="sans number" fill="#ffffff">1</text>
+    <text x="123" y="189" class="sans module-title">Environment &amp; Observations</text>
+
+    <!-- Minimal simulation scene -->
+    <rect x="95" y="209" width="310" height="92" rx="13" fill="#dcecf6" stroke="#7ca8c4" stroke-width="1.5"/>
+    <text x="112" y="232" class="sans body" font-weight="700">Simulation Environment · Unitree Go2</text>
+    <text x="112" y="254" class="sans small">rough terrain · velocity commands</text>
+    <text x="112" y="276" class="sans small">payload / CoM randomization</text>
+
+    <!-- Small editable vector quadruped icon -->
+    <g transform="translate(310 226)" stroke="#2d6589" stroke-width="3" fill="none" stroke-linecap="round">
+      <rect x="0" y="0" width="55" height="25" rx="8" fill="#ffffff"/>
+      <circle cx="48" cy="8" r="3" fill="#2d6589" stroke="none"/>
+      <path d="M 10 24 L 3 49 M 20 24 L 23 49 M 39 24 L 34 49 M 49 24 L 57 49"/>
+      <path d="M 0 56 L 16 50 L 31 56 L 47 49 L 64 56" stroke="#769db5"/>
+    </g>
+
+    <!-- Observation cards -->
+    <rect x="95" y="327" width="310" height="80" rx="12" fill="#ffffff" stroke="#73a4c3" stroke-width="1.6"/>
+    <rect x="95" y="327" width="7" height="80" rx="3.5" fill="#347ba7"/>
+    <text x="119" y="353" class="sans body" font-weight="700">Current proprioceptive observation</text>
+    <text x="119" y="383" class="serif formula">oₜ</text>
+    <text x="153" y="382" class="sans small">current robot state and command</text>
+
+    <rect x="107" y="442" width="286" height="88" rx="11" fill="#e5f2e9" stroke="#8bb99d" stroke-width="1.3"/>
+    <rect x="101" y="448" width="298" height="88" rx="11" fill="#edf7f0" stroke="#72a888" stroke-width="1.3"/>
+    <rect x="95" y="454" width="310" height="88" rx="11" fill="#ffffff" stroke="#4b936a" stroke-width="1.7"/>
+    <rect x="95" y="454" width="7" height="88" rx="3.5" fill="#4b936a"/>
+    <text x="119" y="483" class="sans body" font-weight="700">Temporal observation history</text>
+    <text x="119" y="515" class="serif formula">oᴴₜ = {oₜ₋ₕ, …, oₜ₋₁}</text>
+
+    <rect x="95" y="616" width="310" height="69" rx="12" fill="#fff8ed" stroke="#dc9b4a" stroke-width="1.6"/>
+    <rect x="95" y="616" width="7" height="69" rx="3.5" fill="#d8802b"/>
+    <text x="119" y="643" class="sans body" font-weight="700">Privileged state  sₜ</text>
+    <text x="119" y="666" class="sans small">simulation-only information for the critic</text>
+
+    <text x="250" y="707" text-anchor="middle" class="sans small">The policy never observes privileged state.</text>
+  </g>
+
+  <!-- Module 2: Context estimator -->
+  <g id="context-estimator">
+    <rect x="510" y="455" width="270" height="170" rx="22" fill="#eef8f1" stroke="#4b936a" stroke-width="2.2"/>
+    <circle cx="540" cy="486" r="14" fill="#4b936a"/>
+    <text x="540" y="486" class="sans number" fill="#ffffff">2</text>
+    <text x="565" y="493" class="sans module-title">History Encoder</text>
+    <text x="645" y="522" text-anchor="middle" class="sans module-subtitle">Context Estimator</text>
+    <line x1="548" y1="540" x2="742" y2="540" stroke="#bed8c7" stroke-width="1.5"/>
+    <text x="645" y="574" text-anchor="middle" class="serif formula">ĉₜ = Eφ(oᴴₜ)</text>
+    <text x="645" y="604" text-anchor="middle" class="sans body">velocity estimate  v̂ₜ  +  latent  zₜ</text>
+  </g>
+
+  <!-- Fusion operator -->
+  <g id="feature-fusion">
+    <circle cx="840" cy="370" r="28" fill="#ffffff" stroke="#347ba7" stroke-width="2.3"/>
+    <path d="M 829 370 H 851 M 840 359 V 381" stroke="#347ba7" stroke-width="2.6" stroke-linecap="round"/>
+    <text x="840" y="414" text-anchor="middle" class="sans small">feature fusion</text>
+  </g>
+
+  <!-- Module 3: Actor -->
+  <g id="actor">
+    <rect x="900" y="275" width="280" height="190" rx="22" fill="#edf5fa" stroke="#347ba7" stroke-width="2.3"/>
+    <circle cx="930" cy="307" r="14" fill="#347ba7"/>
+    <text x="930" y="307" class="sans number" fill="#ffffff">3</text>
+    <text x="955" y="314" class="sans module-title">Policy Network</text>
+    <text x="1040" y="341" text-anchor="middle" class="sans module-subtitle">Actor</text>
+    <line x1="938" y1="358" x2="1142" y2="358" stroke="#bdd4e2" stroke-width="1.5"/>
+    <text x="1040" y="398" text-anchor="middle" class="serif formula">aₜ ∼ πθ(oₜ, ĉₜ)</text>
+    <text x="1040" y="428" text-anchor="middle" class="sans body">current observation + learned context</text>
+  </g>
+
+  <!-- Module 4: Critic -->
+  <g id="critic">
+    <rect x="900" y="555" width="280" height="145" rx="22" fill="#fff8ed" stroke="#d8802b" stroke-width="2.2"/>
+    <circle cx="930" cy="586" r="14" fill="#d8802b"/>
+    <text x="930" y="586" class="sans number" fill="#ffffff">4</text>
+    <text x="955" y="593" class="sans module-title">Value Network</text>
+    <text x="1040" y="623" text-anchor="middle" class="sans module-subtitle">Asymmetric Critic · training only</text>
+    <text x="1040" y="663" text-anchor="middle" class="serif formula">Vψ(sₜ)</text>
+  </g>
+
+  <!-- Module 5: PPO -->
+  <g id="ppo-optimization">
+    <rect x="1260" y="275" width="260" height="190" rx="22" fill="#fff5e8" stroke="#d8802b" stroke-width="2.3"/>
+    <circle cx="1290" cy="307" r="14" fill="#d8802b"/>
+    <text x="1290" y="307" class="sans number" fill="#ffffff">5</text>
+    <text x="1315" y="314" class="sans module-title">PPO Optimization</text>
+    <line x1="1297" y1="345" x2="1483" y2="345" stroke="#ead0af" stroke-width="1.5"/>
+    <text x="1390" y="383" text-anchor="middle" class="serif formula">L<tspan baseline-shift="sub" font-size="13">PPO</tspan>(θ, ψ)</text>
+    <text x="1390" y="415" text-anchor="middle" class="sans body">policy improvement</text>
+    <text x="1390" y="439" text-anchor="middle" class="sans small">from simulated rollouts</text>
+  </g>
+
+  <!-- Module 6: Combined auxiliary training -->
+  <g id="auxiliary-objectives">
+    <rect x="1260" y="555" width="260" height="145" rx="22" fill="#f5f0fa" stroke="#8062a8" stroke-width="2.2"/>
+    <circle cx="1290" cy="586" r="14" fill="#8062a8"/>
+    <text x="1290" y="586" class="sans number" fill="#ffffff">6</text>
+    <text x="1315" y="593" class="sans module-title">Auxiliary Objectives</text>
+    <text x="1390" y="630" text-anchor="middle" class="serif formula">L<tspan baseline-shift="sub" font-size="13">aux</tspan></text>
+    <text x="1390" y="657" text-anchor="middle" class="sans body">estimation · reconstruction · KL</text>
+    <text x="1390" y="680" text-anchor="middle" class="sans small">simulator-supervised context learning</text>
+  </g>
+
+  <!-- Compact deployment statement and legend -->
+  <g id="footer" class="sans">
+    <rect x="72" y="783" width="660" height="31" rx="15.5" fill="#eef8f1" stroke="#9bc5a9" stroke-width="1.2"/>
+    <text x="402" y="804" text-anchor="middle" class="small" fill="#356c4d">
+      Deployment: observation history → context estimator; current observation + context → actor
+    </text>
+
+    <line x1="1005" y1="799" x2="1055" y2="799" stroke="#347ba7" stroke-width="3" marker-end="url(#arrow-blue)"/>
+    <text x="1068" y="804" class="small">forward path</text>
+
+    <line x1="1186" y1="799" x2="1236" y2="799" stroke="#d8802b" stroke-width="2.7" stroke-dasharray="9 6" marker-end="url(#arrow-orange)"/>
+    <text x="1249" y="804" class="small">PPO update</text>
+
+    <line x1="1370" y1="799" x2="1420" y2="799" stroke="#8062a8" stroke-width="2.7" stroke-dasharray="9 6" marker-end="url(#arrow-purple)"/>
+    <text x="1433" y="804" class="small">auxiliary update</text>
+  </g>
+</svg>

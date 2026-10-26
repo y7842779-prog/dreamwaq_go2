@@ -1,0 +1,355 @@
+digraph DreamWaQFramework {
+  graph [
+    rankdir=TB,
+    compound=true,
+    newrank=true,
+    splines=polyline,
+    nodesep=0.40,
+    ranksep=0.58,
+    pad=0.30,
+    bgcolor="#F8FAFC",
+    fontname="Noto Sans CJK SC",
+    fontsize=20,
+    labelloc="t",
+    label="Isaac-Velocity-Rough-Unitree-Go2-DreamWaQ-v0  算法框架"
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    color="#CBD5E1",
+    fillcolor="#FFFFFF",
+    fontcolor="#0F172A",
+    fontname="Noto Sans CJK SC",
+    fontsize=11,
+    margin="0.16,0.10",
+    penwidth=1.2
+  ];
+  edge [
+    color="#64748B",
+    fontcolor="#475569",
+    fontname="Noto Sans CJK SC",
+    fontsize=9,
+    arrowsize=0.72,
+    penwidth=1.25
+  ];
+
+  subgraph cluster_env {
+    label="① 环境与观测（Isaac Lab）";
+    color="#93C5FD";
+    fillcolor="#EFF6FF";
+    style="rounded,filled";
+    penwidth=1.5;
+
+    env [
+      fillcolor="#DBEAFE",
+      color="#3B82F6",
+      penwidth=1.8,
+      label=<
+        <B>Unitree Go2 粗糙地形任务</B><BR/>
+        4096 并行环境 · 地形课程 · 速度指令<BR/>
+        负载 0–3 → 0–5 → 0–8 kg / 质心课程随机化 · 外力扰动<BR/>
+        奖励 r<SUB>t</SUB> / 终止 d<SUB>t</SUB>
+      >
+    ];
+
+    current_obs [
+      label=<
+        <B>当前本体观测 o<SUB>t</SUB>：45 维</B><BR ALIGN="LEFT"/>
+        角速度 3 + 投影重力 3 + 指令 3<BR ALIGN="LEFT"/>
+        关节位置 12 + 关节速度 12 + 上一动作 12
+      >
+    ];
+
+    history_obs [
+      label=<
+        <B>历史观测 o<SUB>t</SUB><SUP>H</SUP>：5 × 45 = 225 维</B><BR/>
+        最近 5 帧同构本体观测（展平）
+      >
+    ];
+
+    critic_obs [
+      fillcolor="#FEF3C7",
+      color="#F59E0B",
+      label=<
+        <B>特权观测 c<SUB>t</SUB>（仅训练）</B><BR ALIGN="LEFT"/>
+        真实线/角速度 · 状态 · 指令<BR ALIGN="LEFT"/>
+        外力 · 地形高度扫描
+      >
+    ];
+
+    next_obs [
+      fillcolor="#FEF3C7",
+      color="#F59E0B",
+      label=<
+        <B>下一时刻观测 o<SUB>t+1</SUB></B><BR/>
+        取其中当前帧 45 维作为重建目标
+      >
+    ];
+
+    env -> current_obs [label="无特权信息"];
+    env -> history_obs;
+    env -> critic_obs [label="训练监督", color="#D97706", fontcolor="#B45309", style=dashed];
+    env -> next_obs [label="环境步进后", color="#D97706", fontcolor="#B45309", style=dashed];
+  }
+
+  subgraph cluster_actor {
+    label="② DreamWaQ Actor / CENet";
+    color="#86EFAC";
+    fillcolor="#F0FDF4";
+    style="rounded,filled";
+    penwidth=1.5;
+
+    pack [
+      fillcolor="#DCFCE7",
+      color="#22C55E",
+      label=<
+        <B>Policy 输入：270 维</B><BR/>
+        [ o<SUB>t</SUB> (45), o<SUB>t</SUB><SUP>H</SUP> (225) ]
+      >
+    ];
+
+    encoder [
+      fillcolor="#DCFCE7",
+      color="#22C55E",
+      label=<
+        <B>历史编码器</B><BR/>
+        MLP：225 → 128 → 64（ELU）
+      >
+    ];
+
+    velocity [
+      fillcolor="#CCFBF1",
+      color="#14B8A6",
+      label=<
+        <B>速度估计头</B><BR/>
+        v̂<SUB>t</SUB>：64 → 3
+      >
+    ];
+
+    latent [
+      fillcolor="#EDE9FE",
+      color="#8B5CF6",
+      label=<
+        <B>潜变量分布头</B><BR/>
+        μ<SUB>t</SUB>：64 → 16<BR/>
+        log σ²<SUB>t</SUB>：64 → 16
+      >
+    ];
+
+    actor_input [
+      fillcolor="#DCFCE7",
+      color="#22C55E",
+      label=<
+        <B>部署时策略输入：64 维</B><BR/>
+        [ o<SUB>t</SUB> (45), v̂<SUB>t</SUB> (3), μ<SUB>t</SUB> (16) ]
+      >
+    ];
+
+    policy_head [
+      fillcolor="#DCFCE7",
+      color="#22C55E",
+      label=<
+        <B>Actor 策略头</B><BR/>
+        MLP：64 → 512 → 256 → 128 → 12<BR/>
+        输出动作均值 μ<SUB>a</SUB>
+      >
+    ];
+
+    distribution [
+      label=<
+        <B>高斯策略 π(a|o)</B><BR/>
+        μ<SUB>a</SUB> + 可学习标准差 σ<SUB>a</SUB><BR/>
+        训练采样 / 推理取均值
+      >
+    ];
+
+    action [
+      fillcolor="#BBF7D0",
+      color="#16A34A",
+      penwidth=1.8,
+      label=<
+        <B>12 维关节动作 a<SUB>t</SUB></B>
+      >
+    ];
+
+    reparam [
+      fillcolor="#F3E8FF",
+      color="#A855F7",
+      label=<
+        <B>重参数采样（仅训练）</B><BR/>
+        z = μ + σ ⊙ ε
+      >
+    ];
+
+    decoder [
+      fillcolor="#F3E8FF",
+      color="#A855F7",
+      label=<
+        <B>Decoder（仅训练）</B><BR/>
+        MLP：16 → 64 → 128 → 45<BR/>
+        预测 ô<SUB>t+1</SUB>
+      >
+    ];
+
+    current_obs -> pack;
+    history_obs -> pack;
+    pack -> encoder [label="历史切片 225"];
+    pack -> actor_input [label="当前切片 45"];
+    encoder -> velocity;
+    encoder -> latent;
+    velocity -> actor_input [label="v̂"];
+    latent -> actor_input [label="μ（确定性推理）"];
+    actor_input -> policy_head;
+    policy_head -> distribution;
+    distribution -> action;
+    latent -> reparam [label="μ, log σ²", color="#9333EA", fontcolor="#7E22CE", style=dashed];
+    reparam -> decoder [label="z", color="#9333EA", fontcolor="#7E22CE", style=dashed];
+  }
+
+  subgraph cluster_critic {
+    label="③ 非对称 Critic（仅训练）";
+    color="#FCD34D";
+    fillcolor="#FFFBEB";
+    style="rounded,filled";
+    penwidth=1.5;
+
+    critic [
+      fillcolor="#FEF3C7",
+      color="#F59E0B",
+      label=<
+        <B>价值网络 V(c<SUB>t</SUB>)</B><BR/>
+        MLP：特权观测 → 512 → 256 → 128 → 1
+      >
+    ];
+
+    value [
+      fillcolor="#FDE68A",
+      color="#D97706",
+      label=<
+        <B>状态价值 V<SUB>t</SUB></B>
+      >
+    ];
+
+    critic_obs -> critic [color="#D97706", style=dashed];
+    critic -> value [color="#D97706", style=dashed];
+  }
+
+  subgraph cluster_training {
+    label="④ DreamWaQ-PPO 训练与联合优化";
+    color="#FDA4AF";
+    fillcolor="#FFF1F2";
+    style="rounded,filled";
+    penwidth=1.5;
+
+    rollout [
+      fillcolor="#FFE4E6",
+      color="#F43F5E",
+      label=<
+        <B>DreamWaQ Rollout Storage</B><BR ALIGN="LEFT"/>
+        o<SUB>t</SUB>, c<SUB>t</SUB>, a<SUB>t</SUB>, r<SUB>t</SUB>, d<SUB>t</SUB>, o<SUB>t+1</SUB><BR ALIGN="LEFT"/>
+        24 steps/env · GAE 优势与回报
+      >
+    ];
+
+    ppo_loss [
+      label=<
+        <B>PPO 主损失</B><BR ALIGN="LEFT"/>
+        L<SUB>clip</SUB>：策略裁剪目标<BR ALIGN="LEFT"/>
+        L<SUB>value</SUB>：裁剪价值损失<BR ALIGN="LEFT"/>
+        H[π]：策略熵
+      >
+    ];
+
+    est_loss [
+      fillcolor="#CCFBF1",
+      color="#14B8A6",
+      label=<
+        <B>速度估计损失 L<SUB>est</SUB></B><BR/>
+        MSE(v̂<SUB>t</SUB>, 真实机身线速度)
+      >
+    ];
+
+    recon_loss [
+      fillcolor="#F3E8FF",
+      color="#A855F7",
+      label=<
+        <B>下一观测重建 L<SUB>recon</SUB></B><BR/>
+        MSE(ô<SUB>t+1</SUB>, o<SUB>t+1</SUB>)<BR/>
+        episode 终止样本通过 mask 排除
+      >
+    ];
+
+    kl_loss [
+      fillcolor="#F3E8FF",
+      color="#A855F7",
+      label=<
+        <B>潜变量正则 L<SUB>KL</SUB></B><BR/>
+        KL(q(z|o<SUP>H</SUP>) || N(0,I))
+      >
+    ];
+
+    total_loss [
+      fillcolor="#FECDD3",
+      color="#E11D48",
+      penwidth=1.8,
+      label=<
+        <B>总目标</B><BR/>
+        L = L<SUB>clip</SUB> + L<SUB>value</SUB> − 0.01H<BR/>
+        + 0.1L<SUB>est</SUB> + 0.1L<SUB>recon</SUB> + 10<SUP>−4</SUP>L<SUB>KL</SUB>
+      >
+    ];
+
+    update [
+      fillcolor="#FB7185",
+      color="#BE123C",
+      fontcolor="#FFFFFF",
+      penwidth=1.8,
+      label=<
+        <B>反向传播 / Adam 更新</B><BR/>
+        Encoder · Heads · Decoder · Actor · Critic · σ<SUB>a</SUB>
+      >
+    ];
+
+    rollout -> ppo_loss;
+    ppo_loss -> total_loss;
+    est_loss -> total_loss [color="#0F766E"];
+    recon_loss -> total_loss [color="#7E22CE"];
+    kl_loss -> total_loss [color="#7E22CE"];
+    total_loss -> update [color="#E11D48", penwidth=1.8];
+  }
+
+  action -> env [label="关节目标", color="#16A34A", fontcolor="#15803D", penwidth=1.7, constraint=false];
+  env -> rollout [label="r, d", color="#E11D48", fontcolor="#BE123C", style=dashed];
+  pack -> rollout [label="oₜ", color="#E11D48", fontcolor="#BE123C", style=dashed];
+  critic_obs -> rollout [label="cₜ", color="#E11D48", fontcolor="#BE123C", style=dashed];
+  next_obs -> rollout [label="oₜ₊₁", color="#E11D48", fontcolor="#BE123C", style=dashed];
+  distribution -> rollout [label="a, log π", color="#E11D48", fontcolor="#BE123C", style=dashed];
+  value -> rollout [label="V", color="#E11D48", fontcolor="#BE123C", style=dashed];
+
+  velocity -> est_loss [label="v̂", color="#0F766E", fontcolor="#0F766E", style=dashed];
+  critic_obs -> est_loss [label="真实线速度（前 3 维）", color="#D97706", fontcolor="#B45309", style=dashed];
+  decoder -> recon_loss [label="ôₜ₊₁", color="#7E22CE", fontcolor="#7E22CE", style=dashed];
+  next_obs -> recon_loss [label="目标", color="#D97706", fontcolor="#B45309", style=dashed];
+  latent -> kl_loss [label="μ, log σ²", color="#7E22CE", fontcolor="#7E22CE", style=dashed];
+
+  legend [
+    shape=plain,
+    fontsize=9,
+    label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="5" COLOR="#CBD5E1">
+        <TR><TD BGCOLOR="#DCFCE7"><B>绿色实线</B></TD><TD>训练与部署都保留</TD></TR>
+        <TR><TD BGCOLOR="#FEF3C7"><B>黄色</B></TD><TD>特权信息，仅训练使用</TD></TR>
+        <TR><TD BGCOLOR="#F3E8FF"><B>紫色虚线</B></TD><TD>VAE/重建辅助分支，仅训练使用</TD></TR>
+      </TABLE>
+    >
+  ];
+
+  { rank=same; current_obs; history_obs; critic_obs; next_obs; }
+  { rank=same; velocity; latent; }
+  { rank=same; actor_input; reparam; }
+  { rank=same; policy_head; decoder; critic; }
+  { rank=same; action; value; }
+  { rank=same; est_loss; recon_loss; kl_loss; ppo_loss; }
+  { rank=sink; legend; }
+}
